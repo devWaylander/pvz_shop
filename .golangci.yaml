@@ -1,0 +1,70 @@
+version: "2"
+$schema: https://raw.githubusercontent.com/golangci/golangci-lint/master/.golangci.reference.schema.json
+
+run:
+  timeout: 5m
+  modules-download-mode: readonly
+  skip-dirs:
+    - vendor
+    - testdata
+  skip-files:
+    - ".*_test\\.go$"  # Пропускаем тесты (если нужно)
+
+output:
+  format: colored-line-number
+  print-issued-lines: true
+  print-linter-name: true
+
+linters-settings:
+  govet:
+    check-shadowing: true
+    settings:
+      printf:
+        funcs:
+          - log.Printf
+          - log.Warnf
+          - log.Errorf
+          - log.Panicf
+          - log.Fatalf
+  gocritic:
+    enabled-tags:
+      - performance
+      - style
+  gocyclo:
+    min-complexity: 2  
+  revive:
+    rules:
+      - name: exported
+        disabled: false
+      - name: package-comments
+        disabled: true  
+
+linters:
+  disable-all: true
+  enable:
+    # Базовые линтеры
+    - errcheck
+    - govet
+    - staticcheck
+    - unused
+    - ineffassign
+
+    # Дополнительные линтеры
+    - bodyclose       # Проверяет закрытие HTTP body
+    - durationcheck   # Проверяет умножение duration
+    - gocritic        # Расширенный анализ кода
+    - gocyclo         # Проверка сложности функций
+    - godot           # Проверка точек в комментариях
+    - misspell        # Проверка орфографии
+    - prealloc        # Предварительное выделение слайсов
+    - sqlclosecheck   # Проверяет закрытие SQL-ресурсов
+    - unconvert       # Лишние конвертации типов
+    - wastedassign    # Бесполезные присваивания
+
+issues:
+  exclude-use-default: false
+  max-issues-per-linter: 0
+  max-same-issues: 0
+  exclude:
+    - "Error return value of .((os\\.)?std(out|err)\\..*|.*Close|.*Flush|os\\.Remove(All)?|.*printf?|.*print(f|ln)?|.*Write(JSON)?|.*(c|C)lose). is not checked"
+    - "cyclomatic complexity .* of function .* is high"
