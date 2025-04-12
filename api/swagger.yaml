@@ -4,6 +4,9 @@ info:
   description: Сервис для управления ПВЗ и приемкой товаров
   version: 1.0.0
 
+servers:
+  - url: http://localhost:8080
+
 components:
   schemas:
     Token:
@@ -269,7 +272,7 @@ paths:
 
   /pvz/{pvzId}/close_last_reception:
     post:
-      summary: Закрытие последней открытой приемки товаров в рамках ПВЗ
+      summary: Закрытие последней открытой приемки товаров в рамках ПВЗ (только для сотрудников ПВЗ)
       security:
         - bearerAuth: []
       parameters:
