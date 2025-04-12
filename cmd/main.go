@@ -11,6 +11,8 @@ import (
 	errorgroup "github.com/devWaylander/coins_store/pkg/error_group"
 	"github.com/devWaylander/pvz_store/api"
 	"github.com/devWaylander/pvz_store/internal/handler"
+	"github.com/devWaylander/pvz_store/internal/middleware/cors"
+	"github.com/devWaylander/pvz_store/internal/middleware/logger"
 	"github.com/devWaylander/pvz_store/internal/repo"
 	"github.com/devWaylander/pvz_store/internal/service"
 	"github.com/devWaylander/pvz_store/pkg/log"
@@ -57,8 +59,13 @@ func main() {
 
 	// Handlers
 	// chi router and swagger req validator
-	// Инициализация chi-роутера и middleware валидации запросов на основе OpenAPI
+	// Инициализация chi-роутера
 	r := chi.NewRouter()
+	// middleware логирования
+	r.Use(logger.Middleware())
+	// middleware CORS
+	r.Use(cors.Middleware())
+	// middleware валидации запросов на основе OpenAPI
 	swagger, err := api.GetSwagger()
 	if err != nil {
 		log.Logger.Fatal().Msgf("failed to load swagger spec: %s", err)
