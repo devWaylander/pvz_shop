@@ -23,4 +23,6 @@ const (
 	ErrReceptionDoesntExist = "ERR_RECEPTION_DOESNT_EXIST"
 	ErrReceptionExist       = "ERR_RECEPTION_ALREADY_IN_PROGRESS_STATUS"
 	ErrWrongReceptionStatus = "ERR_RECEPTION_ALREADY_IS_CLOSED"
+	// ===================-  PRODUCT  -===================
+	ErrNoProductsToDelete = "ERR_NO_PRODUCTS_TO_DELETE"
 )

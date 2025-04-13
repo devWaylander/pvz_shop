@@ -23,6 +23,7 @@ type AuthMiddleware interface {
 type Service interface {
 	CreatePVZ(ctx context.Context, data api.PVZ) (api.PVZ, error)
 	CreateReception(ctx context.Context, data api.PostReceptionsJSONBody) (api.Reception, error)
+	CloseReception(ctx context.Context, pvzUUID uuid.UUID) (api.Reception, error)
 	CreateProduct(ctx context.Context, data api.PostProductsJSONBody) (api.Product, error)
 	DeleteLastProduct(ctx context.Context, pvzUUID uuid.UUID) error
 }
@@ -184,7 +185,8 @@ func (h *Handler) PostPvzPvzIdDeleteLastProduct(
 		switch err.Error() {
 		case internalErrors.ErrPVZDoesntExist,
 			internalErrors.ErrReceptionDoesntExist,
-			internalErrors.ErrWrongReceptionStatus:
+			internalErrors.ErrWrongReceptionStatus,
+			internalErrors.ErrNoProductsToDelete:
 			return api.PostPvzPvzIdDeleteLastProduct400JSONResponse{Message: err.Error()}, nil
 		default:
 			return api.PostPvzPvzIdDeleteLastProduct500JSONResponse{Message: err.Error()}, err
@@ -199,7 +201,29 @@ func (h *Handler) PostPvzPvzIdDeleteLastProduct(
 func (h *Handler) PostPvzPvzIdCloseLastReception(
 	ctx context.Context,
 	request api.PostPvzPvzIdCloseLastReceptionRequestObject) (api.PostPvzPvzIdCloseLastReceptionResponseObject, error) {
-	return api.PostPvzPvzIdCloseLastReception200JSONResponse{}, nil
+	authPrincipal, err := models.GetAuthPrincipal(ctx)
+	if err != nil {
+		return api.PostPvzPvzIdCloseLastReception500JSONResponse{Message: err.Error()}, err
+	}
+
+	if authPrincipal.Role != string(api.Employee) {
+		err := errors.New(internalErrors.ErrForbiddenRole)
+		return api.PostPvzPvzIdCloseLastReception403JSONResponse{Message: err.Error()}, nil
+	}
+
+	reception, err := h.service.CloseReception(ctx, request.PvzId)
+	if err != nil {
+		switch err.Error() {
+		case internalErrors.ErrPVZDoesntExist,
+			internalErrors.ErrReceptionDoesntExist,
+			internalErrors.ErrWrongReceptionStatus:
+			return api.PostPvzPvzIdCloseLastReception400JSONResponse{Message: err.Error()}, nil
+		default:
+			return api.PostPvzPvzIdCloseLastReception500JSONResponse{Message: err.Error()}, err
+		}
+	}
+
+	return api.PostPvzPvzIdCloseLastReception200JSONResponse(reception), nil
 }
 
 // Получение списка ПВЗ с фильтрацией по дате приемки и пагинацией (для всех ролей)

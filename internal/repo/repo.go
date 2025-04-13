@@ -137,6 +137,27 @@ func (r *repository) GetReceptionStatusByPvzUUID(ctx context.Context, pvzUUID uu
 	return status, nil
 }
 
+func (r *repository) UpdateReceptionStatus(ctx context.Context, recUUID uuid.UUID, status string) error {
+	query := `
+		UPDATE shop.receptions
+		SET status = $1
+		WHERE id = $2
+	`
+
+	_, err := r.db.ExecContext(ctx, query, status, recUUID)
+	if err != nil {
+		log.Logger.Err(err).
+			Str("method", "UpdateReceptionStatus").
+			Str("status", status).
+			Str("reception_id", recUUID.String()).
+			Msg("could not update reception status")
+
+		return errors.New("could not update reception status")
+	}
+
+	return nil
+}
+
 /*
 Product
 */
@@ -171,10 +192,23 @@ func (r *repository) DeleteLastProductByReceptionUUID(ctx context.Context, recep
 		)
 	`
 
-	_, err := r.db.ExecContext(ctx, query, receptionUUID)
+	res, err := r.db.ExecContext(ctx, query, receptionUUID)
 	if err != nil {
 		log.Logger.Err(err).Str("receptionUUID", receptionUUID.String()).Msg("method DeleteLastProductByReceptionUUID")
 		return errors.New("could not delete last product by reception uuid")
+	}
+
+	affected, err := res.RowsAffected()
+	if err != nil {
+		log.Logger.Err(err).
+			Str("method", "DeleteLastProductByReceptionUUID").
+			Str("receptionUUID", receptionUUID.String()).
+			Msg("could not get rows affected")
+		return errors.New("could not get deletion result")
+	}
+
+	if affected == 0 {
+		return errors.New(internalErrors.ErrNoProductsToDelete)
 	}
 
 	return nil
