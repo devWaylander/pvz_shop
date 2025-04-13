@@ -20,6 +20,7 @@ type Repository interface {
 	GetReceptionStatusByPvzUUID(ctx context.Context, pvzUUID uuid.UUID) (string, error)
 	// Product
 	CreateProduct(ctx context.Context, receptionUUID uuid.UUID, prType string) (api.Product, error)
+	DeleteLastProductByReceptionUUID(ctx context.Context, receptionUUID uuid.UUID) error
 }
 
 type service struct {
@@ -32,6 +33,9 @@ func New(repo Repository) *service {
 	}
 }
 
+/*
+PVZ
+*/
 func (s *service) CreatePVZ(ctx context.Context, data api.PVZ) (api.PVZ, error) {
 	if data.RegistrationDate != nil && data.RegistrationDate.After(time.Now()) {
 		return api.PVZ{}, errors.New(internalErrors.ErrWrongRegDate)
@@ -45,6 +49,9 @@ func (s *service) CreatePVZ(ctx context.Context, data api.PVZ) (api.PVZ, error) 
 	return pvz, nil
 }
 
+/*
+Reception
+*/
 func (s *service) CreateReception(ctx context.Context, data api.PostReceptionsJSONBody) (api.Reception, error) {
 	isPVZExist, err := s.repo.IsPVZExist(ctx, data.PvzId)
 	if err != nil {
@@ -70,30 +77,51 @@ func (s *service) CreateReception(ctx context.Context, data api.PostReceptionsJS
 	return reception, nil
 }
 
+/*
+Product
+*/
 func (s *service) CreateProduct(ctx context.Context, data api.PostProductsJSONBody) (api.Product, error) {
-	isPVZExist, err := s.repo.IsPVZExist(ctx, data.PvzId)
+	recUUID, err := s.validateReceptionForProduct(ctx, data.PvzId)
 	if err != nil {
 		return api.Product{}, err
 	}
-	if !isPVZExist {
-		return api.Product{}, errors.New(internalErrors.ErrPVZDoesntExist)
-	}
 
-	reception, err := s.repo.GetReceptionByPvzUUID(ctx, data.PvzId)
-	if err != nil {
-		return api.Product{}, err
-	}
-	if reception.Id == nil {
-		return api.Product{}, errors.New(internalErrors.ErrReceptionDoesntExist)
-	}
-	if reception.Status != api.InProgress {
-		return api.Product{}, errors.New(internalErrors.ErrWrongReceptionStatus)
-	}
-
-	product, err := s.repo.CreateProduct(ctx, *reception.Id, string(data.Type))
+	product, err := s.repo.CreateProduct(ctx, recUUID, string(data.Type))
 	if err != nil {
 		return api.Product{}, err
 	}
 
 	return product, nil
+}
+
+func (s *service) DeleteLastProduct(ctx context.Context, pvzUUID uuid.UUID) error {
+	recUUID, err := s.validateReceptionForProduct(ctx, pvzUUID)
+	if err != nil {
+		return err
+	}
+
+	return s.repo.DeleteLastProductByReceptionUUID(ctx, recUUID)
+}
+
+func (s *service) validateReceptionForProduct(ctx context.Context, pvzUUID uuid.UUID) (uuid.UUID, error) {
+	isPVZExist, err := s.repo.IsPVZExist(ctx, pvzUUID)
+	if err != nil {
+		return uuid.UUID{}, err
+	}
+	if !isPVZExist {
+		return uuid.UUID{}, errors.New(internalErrors.ErrPVZDoesntExist)
+	}
+
+	reception, err := s.repo.GetReceptionByPvzUUID(ctx, pvzUUID)
+	if err != nil {
+		return uuid.UUID{}, err
+	}
+	if reception.Id == nil {
+		return uuid.UUID{}, errors.New(internalErrors.ErrReceptionDoesntExist)
+	}
+	if reception.Status != api.InProgress {
+		return uuid.UUID{}, errors.New(internalErrors.ErrWrongReceptionStatus)
+	}
+
+	return *reception.Id, nil
 }

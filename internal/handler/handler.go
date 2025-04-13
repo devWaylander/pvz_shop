@@ -24,6 +24,7 @@ type Service interface {
 	CreatePVZ(ctx context.Context, data api.PVZ) (api.PVZ, error)
 	CreateReception(ctx context.Context, data api.PostReceptionsJSONBody) (api.Reception, error)
 	CreateProduct(ctx context.Context, data api.PostProductsJSONBody) (api.Product, error)
+	DeleteLastProduct(ctx context.Context, pvzUUID uuid.UUID) error
 }
 
 type Handler struct {
@@ -151,7 +152,9 @@ func (h *Handler) PostProducts(ctx context.Context, request api.PostProductsRequ
 	product, err := h.service.CreateProduct(ctx, api.PostProductsJSONBody(*request.Body))
 	if err != nil {
 		switch err.Error() {
-		case internalErrors.ErrPVZDoesntExist, internalErrors.ErrReceptionDoesntExist:
+		case internalErrors.ErrPVZDoesntExist,
+			internalErrors.ErrReceptionDoesntExist,
+			internalErrors.ErrWrongReceptionStatus:
 			return api.PostProducts400JSONResponse{Message: err.Error()}, nil
 		default:
 			return api.PostProducts500JSONResponse{Message: err.Error()}, err
@@ -166,6 +169,28 @@ func (h *Handler) PostProducts(ctx context.Context, request api.PostProductsRequ
 func (h *Handler) PostPvzPvzIdDeleteLastProduct(
 	ctx context.Context,
 	request api.PostPvzPvzIdDeleteLastProductRequestObject) (api.PostPvzPvzIdDeleteLastProductResponseObject, error) {
+	authPrincipal, err := models.GetAuthPrincipal(ctx)
+	if err != nil {
+		return api.PostPvzPvzIdDeleteLastProduct500JSONResponse{Message: err.Error()}, err
+	}
+
+	if authPrincipal.Role != string(api.Employee) {
+		err := errors.New(internalErrors.ErrForbiddenRole)
+		return api.PostPvzPvzIdDeleteLastProduct403JSONResponse{Message: err.Error()}, nil
+	}
+
+	err = h.service.DeleteLastProduct(ctx, request.PvzId)
+	if err != nil {
+		switch err.Error() {
+		case internalErrors.ErrPVZDoesntExist,
+			internalErrors.ErrReceptionDoesntExist,
+			internalErrors.ErrWrongReceptionStatus:
+			return api.PostPvzPvzIdDeleteLastProduct400JSONResponse{Message: err.Error()}, nil
+		default:
+			return api.PostPvzPvzIdDeleteLastProduct500JSONResponse{Message: err.Error()}, err
+		}
+	}
+
 	return api.PostPvzPvzIdDeleteLastProduct200Response{}, nil
 }
 

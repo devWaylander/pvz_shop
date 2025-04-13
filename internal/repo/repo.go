@@ -158,3 +158,24 @@ func (r *repository) CreateProduct(ctx context.Context, receptionUUID uuid.UUID,
 
 	return inserted.ToModelAPIProduct(), nil
 }
+
+func (r *repository) DeleteLastProductByReceptionUUID(ctx context.Context, receptionUUID uuid.UUID) error {
+	query := `
+		DELETE FROM shop.products
+		WHERE id = (
+			SELECT id
+			FROM shop.products
+			WHERE reception_id = $1
+			ORDER BY created_at DESC
+			LIMIT 1
+		)
+	`
+
+	_, err := r.db.ExecContext(ctx, query, receptionUUID)
+	if err != nil {
+		log.Logger.Err(err).Str("receptionUUID", receptionUUID.String()).Msg("method DeleteLastProductByReceptionUUID")
+		return errors.New("could not delete last product by reception uuid")
+	}
+
+	return nil
+}
