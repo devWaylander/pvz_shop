@@ -8,6 +8,7 @@ import (
 
 	"github.com/devWaylander/pvz_store/api"
 	internalErrors "github.com/devWaylander/pvz_store/pkg/errors"
+	"github.com/devWaylander/pvz_store/pkg/log"
 	"github.com/devWaylander/pvz_store/pkg/models"
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
@@ -32,12 +33,14 @@ func (r *repository) CreatePVZ(ctx context.Context, id uuid.UUID, city string, r
 	var inserted models.PvzDB
 	err := r.db.QueryRowContext(ctx, query, id, city, registrationDate).
 		Scan(&inserted.ID, &inserted.City, &inserted.RegistrationDate)
+
 	if err != nil {
 		if pqErr, ok := err.(*pq.Error); ok && pqErr.Code == "23505" && pqErr.Constraint == "pvz_pkey" {
 			return api.PVZ{}, errors.New(internalErrors.ErrPVZExist)
 		}
 
-		return api.PVZ{}, err
+		log.Logger.Err(err).Msg("method CreatePVZ")
+		return api.PVZ{}, errors.New("could not create PVZ")
 	}
 
 	return inserted.ToModelAPIPvz(), nil
@@ -54,7 +57,9 @@ func (r *repository) IsPVZExist(ctx context.Context, id uuid.UUID) (bool, error)
 		if err == sql.ErrNoRows {
 			return false, nil
 		}
-		return false, err
+
+		log.Logger.Err(err).Msg("method IsPVZExist")
+		return false, errors.New("could not check if PVZ exists")
 	}
 
 	return true, nil
@@ -72,7 +77,8 @@ func (r *repository) CreateReception(ctx context.Context, pvzUUID uuid.UUID, sta
 		Scan(&inserted.ID, &inserted.PvzID, &inserted.CreatedAt, &inserted.Status)
 
 	if err != nil {
-		return api.Reception{}, err
+		log.Logger.Err(err).Msg("method CreateReception")
+		return api.Reception{}, errors.New("could not create reception")
 	}
 
 	return inserted.ToModelAPIReception(), nil
@@ -93,7 +99,9 @@ func (r *repository) GetReceptionStatusByPvzUUID(ctx context.Context, pvzUUID uu
 		if errors.Is(err, sql.ErrNoRows) {
 			return "", nil
 		}
-		return "", err
+
+		log.Logger.Err(err).Msg("method GetReceptionStatusByPvzUUID")
+		return "", errors.New("could not get reception status by pvz uuid")
 	}
 
 	return status, nil
