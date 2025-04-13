@@ -41,7 +41,7 @@ services:
       - pvz-pg-test-data:/var/lib/postgresql/data
 
   migrations:
-      image: migrations
+      image: migrations-pvz
       build:
         context: ./
         dockerfile: docker/migrations.dockerfile
@@ -59,7 +59,7 @@ services:
         - postgresdb
 
   migrationstest:
-    image: migrations
+    image: migrations-pvz
     build:
       context: ./
       dockerfile: docker/migrations.dockerfile
