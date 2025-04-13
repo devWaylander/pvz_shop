@@ -68,6 +68,40 @@ func (r *repository) IsPVZExist(ctx context.Context, id uuid.UUID) (bool, error)
 	return true, nil
 }
 
+func (r *repository) GetPVZs(ctx context.Context, page, limit int) ([]api.PVZ, error) {
+	offset := (page - 1) * limit
+
+	query := `
+		SELECT id, city, registration_date
+		FROM shop.pvz
+		LIMIT $1 OFFSET $2
+	`
+
+	rows, err := r.db.QueryContext(ctx, query, limit, offset)
+	if err != nil {
+		log.Logger.Err(err).Msg("method GetPVZs")
+		return nil, errors.New("could not get pvzs")
+	}
+	defer rows.Close()
+
+	var pvzs []api.PVZ
+	for rows.Next() {
+		var pvz models.PvzDB
+		if err := rows.Scan(&pvz.ID, &pvz.City, &pvz.RegistrationDate); err != nil {
+			log.Logger.Err(err).Msg("method GetPVZs")
+			return nil, errors.New("could not scan pvz row")
+		}
+		pvzs = append(pvzs, pvz.ToModelAPIPvz())
+	}
+
+	if err := rows.Err(); err != nil {
+		log.Logger.Err(err).Msg("method GetPVZs")
+		return nil, errors.New("error during rows iteration")
+	}
+
+	return pvzs, nil
+}
+
 /*
 Reception
 */
@@ -112,6 +146,52 @@ func (r *repository) GetReceptionByPvzUUID(ctx context.Context, pvzUUID uuid.UUI
 	}
 
 	return reception.ToModelAPIReception(), nil
+}
+
+func (r *repository) GetReceptionsByPvzUUIDsFiltered(ctx context.Context, pvzUUIDs []uuid.UUID, startDate, endDate *time.Time) ([]api.Reception, error) {
+	query := `
+		SELECT r.id, r.pvz_id, r.status, r.created_at
+		FROM shop.receptions r
+		WHERE r.pvz_id = ANY($1)
+	`
+
+	var args []any
+	args = append(args, pq.Array(pvzUUIDs))
+
+	if startDate != nil {
+		query += ` AND r.created_at >= $2`
+		args = append(args, *startDate)
+	}
+	if endDate != nil {
+		query += ` AND r.created_at <= $3`
+		args = append(args, *endDate)
+	}
+
+	query += ` ORDER BY r.created_at DESC`
+
+	rows, err := r.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		log.Logger.Err(err).Msg("method GetReceptionsByPvzUUIDsFiltered")
+		return nil, errors.New("could not get receptions by pvz uuids")
+	}
+	defer rows.Close()
+
+	var receptions []api.Reception
+	for rows.Next() {
+		var reception models.ReceptionDB
+		if err := rows.Scan(&reception.ID, &reception.PvzID, &reception.Status, &reception.CreatedAt); err != nil {
+			log.Logger.Err(err).Msg("method GetReceptionsByPvzUUIDsFiltered")
+			return nil, errors.New("could not scan reception row")
+		}
+		receptions = append(receptions, reception.ToModelAPIReception())
+	}
+
+	if err := rows.Err(); err != nil {
+		log.Logger.Err(err).Msg("method GetReceptionsByPvzUUIDsFiltered")
+		return nil, errors.New("error during rows iteration")
+	}
+
+	return receptions, nil
 }
 
 func (r *repository) GetReceptionStatusByPvzUUID(ctx context.Context, pvzUUID uuid.UUID) (string, error) {
@@ -178,6 +258,38 @@ func (r *repository) CreateProduct(ctx context.Context, receptionUUID uuid.UUID,
 	}
 
 	return inserted.ToModelAPIProduct(), nil
+}
+
+func (r *repository) GetProductsByRecsUUIDs(ctx context.Context, recsUUIDs []uuid.UUID) ([]api.Product, error) {
+	query := `
+		SELECT p.id, p.reception_id, p.type, p.created_at
+		FROM shop.products p
+		WHERE p.reception_id = ANY($1)
+	`
+
+	rows, err := r.db.QueryContext(ctx, query, pq.Array(recsUUIDs))
+	if err != nil {
+		log.Logger.Err(err).Msg("method GetProductsByRecsUUIDs")
+		return nil, errors.New("could not get products by reception uuids")
+	}
+	defer rows.Close()
+
+	var products []api.Product
+	for rows.Next() {
+		var product models.ProductDB
+		if err := rows.Scan(&product.ID, &product.ReceptionID, &product.Type, &product.CreatedAt); err != nil {
+			log.Logger.Err(err).Msg("method GetProductsByRecsUUIDs")
+			return nil, errors.New("could not scan product row")
+		}
+		products = append(products, product.ToModelAPIProduct())
+	}
+
+	if err := rows.Err(); err != nil {
+		log.Logger.Err(err).Msg("method GetProductsByRecsUUIDs")
+		return nil, errors.New("error during rows iteration")
+	}
+
+	return products, nil
 }
 
 func (r *repository) DeleteLastProductByReceptionUUID(ctx context.Context, receptionUUID uuid.UUID) error {

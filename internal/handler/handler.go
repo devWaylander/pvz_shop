@@ -22,6 +22,7 @@ type AuthMiddleware interface {
 
 type Service interface {
 	CreatePVZ(ctx context.Context, data api.PVZ) (api.PVZ, error)
+	GetPVZsInfo(ctx context.Context, data api.GetPvzParams) ([]models.PvzInfo, error)
 	CreateReception(ctx context.Context, data api.PostReceptionsJSONBody) (api.Reception, error)
 	CloseReception(ctx context.Context, pvzUUID uuid.UUID) (api.Reception, error)
 	CreateProduct(ctx context.Context, data api.PostProductsJSONBody) (api.Product, error)
@@ -229,7 +230,22 @@ func (h *Handler) PostPvzPvzIdCloseLastReception(
 // Получение списка ПВЗ с фильтрацией по дате приемки и пагинацией (для всех ролей)
 // (GET /pvz)
 func (h *Handler) GetPvz(ctx context.Context, request api.GetPvzRequestObject) (api.GetPvzResponseObject, error) {
-	return api.GetPvz200JSONResponse{}, nil
+	authPrincipal, err := models.GetAuthPrincipal(ctx)
+	if err != nil {
+		return api.GetPvz500JSONResponse{Message: err.Error()}, err
+	}
+
+	if authPrincipal.Role == "" {
+		return api.GetPvz500JSONResponse{Message: internalErrors.ErrForbiddenRole},
+			errors.New(internalErrors.ErrForbiddenRole)
+	}
+
+	pvzsInfo, err := h.service.GetPVZsInfo(ctx, request.Params)
+	if err != nil {
+		return api.GetPvz500JSONResponse{Message: err.Error()}, err
+	}
+
+	return api.GetPvz200JSONResponse(models.MapPvzInfoToAPIResponse(pvzsInfo)), nil
 }
 
 // RegisterStrictHandlers регистрирует все эндпоинты strict‑сервера на chi‑роутере, а также занимается парсингом URL и query параметров
@@ -292,13 +308,13 @@ func (h *Handler) RegisterStrictHandlers(r chi.Router, sh api.ServerInterface) {
 			return
 		}
 
-		err = runtime.BindQueryParameter("form", true, false, "page", r.URL.Query(), &params.Page)
+		err = runtime.BindQueryParameter("form", true, true, "page", r.URL.Query(), &params.Page)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 
-		err = runtime.BindQueryParameter("form", true, false, "limit", r.URL.Query(), &params.Limit)
+		err = runtime.BindQueryParameter("form", true, true, "limit", r.URL.Query(), &params.Limit)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return

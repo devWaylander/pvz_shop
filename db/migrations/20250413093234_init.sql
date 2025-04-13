@@ -38,12 +38,15 @@ CREATE TABLE shop.products (
 -- Индексы для ускорения запросов
 CREATE INDEX idx_users_email ON shop.users(email);
 CREATE INDEX idx_receptions_pvz_id_created_at ON shop.receptions (pvz_id, created_at);
-
+CREATE INDEX idx_products_reception_id ON shop.products (reception_id);
+CREATE INDEX idx_receptions_pvz_id ON shop.receptions (pvz_id);
 
 -- migrate:down
 -- Индексы
 DROP INDEX IF EXISTS idx_users_email;
 DROP INDEX IF EXISTS idx_receptions_pvz_id_created_at;
+DROP INDEX IF EXISTS idx_products_reception_id;
+DROP INDEX IF EXISTS idx_receptions_pvz_id;
 
 -- Удаление схемы
 DROP SCHEMA IF EXISTS shop CASCADE;

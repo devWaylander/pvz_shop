@@ -7,6 +7,7 @@ import (
 
 	"github.com/devWaylander/pvz_store/api"
 	internalErrors "github.com/devWaylander/pvz_store/pkg/errors"
+	"github.com/devWaylander/pvz_store/pkg/models"
 	"github.com/google/uuid"
 )
 
@@ -14,13 +15,16 @@ type Repository interface {
 	// PVZ
 	CreatePVZ(ctx context.Context, id uuid.UUID, city string, registrationDate time.Time) (api.PVZ, error)
 	IsPVZExist(ctx context.Context, id uuid.UUID) (bool, error)
+	GetPVZs(ctx context.Context, page, limit int) ([]api.PVZ, error)
 	// Reception
 	CreateReception(ctx context.Context, pvzUUID uuid.UUID, status string) (api.Reception, error)
 	GetReceptionByPvzUUID(ctx context.Context, pvzUUID uuid.UUID) (api.Reception, error)
+	GetReceptionsByPvzUUIDsFiltered(ctx context.Context, pvzUUIDs []uuid.UUID, startDate, endDate *time.Time) ([]api.Reception, error)
 	GetReceptionStatusByPvzUUID(ctx context.Context, pvzUUID uuid.UUID) (string, error)
 	UpdateReceptionStatus(ctx context.Context, recUUID uuid.UUID, status string) error
 	// Product
 	CreateProduct(ctx context.Context, receptionUUID uuid.UUID, prType string) (api.Product, error)
+	GetProductsByRecsUUIDs(ctx context.Context, recsUUIDs []uuid.UUID) ([]api.Product, error)
 	DeleteLastProductByReceptionUUID(ctx context.Context, receptionUUID uuid.UUID) error
 }
 
@@ -48,6 +52,79 @@ func (s *service) CreatePVZ(ctx context.Context, data api.PVZ) (api.PVZ, error) 
 	}
 
 	return pvz, nil
+}
+
+func (s *service) GetPVZsInfo(ctx context.Context, data api.GetPvzParams) ([]models.PvzInfo, error) {
+	if data.Page == nil || *data.Page < 1 {
+		page := 1
+		data.Page = &page
+	}
+	if data.Limit == nil || *data.Limit < 1 {
+		limit := 10
+		data.Limit = &limit
+	}
+
+	pvzs, err := s.repo.GetPVZs(ctx, *data.Page, *data.Limit)
+	if err != nil {
+		return nil, err
+	}
+
+	pvzsUUIDs := make([]uuid.UUID, 0, len(pvzs))
+	for _, pvz := range pvzs {
+		if pvz.Id == nil {
+			return nil, errors.New(internalErrors.ErrPVZDoesntExist)
+		}
+		pvzsUUIDs = append(pvzsUUIDs, *pvz.Id)
+	}
+
+	receptions, err := s.repo.GetReceptionsByPvzUUIDsFiltered(ctx, pvzsUUIDs, data.StartDate, data.EndDate)
+	if err != nil {
+		return nil, err
+	}
+
+	recsUUIDs := make([]uuid.UUID, 0, len(receptions))
+	for _, rec := range receptions {
+		if rec.Id == nil {
+			return nil, errors.New(internalErrors.ErrReceptionDoesntExist)
+		}
+		recsUUIDs = append(recsUUIDs, *rec.Id)
+	}
+
+	products, err := s.repo.GetProductsByRecsUUIDs(ctx, recsUUIDs)
+	if err != nil {
+		return nil, err
+	}
+
+	// группируем продукты по reception_id
+	productsByRec := make(map[uuid.UUID][]api.Product)
+	for _, product := range products {
+		productsByRec[product.ReceptionId] = append(productsByRec[product.ReceptionId], product)
+	}
+
+	// группируем приёмки по pvz_id
+	recsByPvz := make(map[uuid.UUID][]models.ReceptionWithProducts)
+	for _, rec := range receptions {
+		recsByPvz[rec.PvzId] = append(recsByPvz[rec.PvzId], models.ReceptionWithProducts{
+			Reception: rec,
+			// проверено на nil ранее
+			Products: productsByRec[*rec.Id],
+		})
+	}
+
+	// собираем финальный список PvzInfo
+	var result []models.PvzInfo
+	for _, pvz := range pvzs {
+		if pvz.Id == nil {
+			continue
+		}
+		result = append(result, models.PvzInfo{
+			Pvz: pvz,
+			// проверено на nil ранее
+			Receptions: recsByPvz[*pvz.Id],
+		})
+	}
+
+	return result, nil
 }
 
 /*
