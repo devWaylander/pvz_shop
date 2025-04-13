@@ -10,11 +10,11 @@ default: help
 help: 												# Show help for each of the Makefile recipes.
 	@grep -E '^[a-zA-Z0-9 -]+:.*#'  Makefile | sort | while read -r l; do printf "\033[1;32m$$(echo $$l | cut -f 1 -d':')\033[00m:$$(echo $$l | cut -f 2- -d'#')\n"; done
 
-lint:
+lint: 												# Run linters
 	@echo "🔍 Running golangci-lint..."
 	@golangci-lint run --config .golangci.yaml
 
-genAPI:
+genAPI: 										    # Generate oapi API
 	oapi-codegen -generate chi-server,strict-server,types,embedded-spec -package api -o api/api.gen.go ./api/swagger.yaml
 
 .PHONY: installDeps

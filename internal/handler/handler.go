@@ -8,6 +8,7 @@ import (
 	"github.com/devWaylander/pvz_store/api"
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
+	"github.com/oapi-codegen/runtime"
 )
 
 type Service interface {
@@ -103,12 +104,29 @@ func (h *Handler) RegisterStrictHandlers(r chi.Router, sh api.ServerInterface) {
 	r.Get("/pvz", func(w http.ResponseWriter, r *http.Request) {
 		var params api.GetPvzParams
 
-		// если ожидается параметр "page" в строке запроса
-		if v := r.URL.Query().Get("page"); v != "" {
-			// Здесь можно добавить конвертацию из строки в int
-			// Например, используя strconv.Atoi
+		err := runtime.BindQueryParameter("form", true, false, "startDate", r.URL.Query(), &params.StartDate)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
 		}
-		// Аналогично для других параметров: startDate, endDate, limit и т.д.
+
+		err = runtime.BindQueryParameter("form", true, false, "endDate", r.URL.Query(), &params.EndDate)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		err = runtime.BindQueryParameter("form", true, false, "page", r.URL.Query(), &params.Page)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		err = runtime.BindQueryParameter("form", true, false, "limit", r.URL.Query(), &params.Limit)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
 
 		sh.GetPvz(w, r, params)
 	})
@@ -119,12 +137,12 @@ func (h *Handler) RegisterStrictHandlers(r chi.Router, sh api.ServerInterface) {
 	// POST /pvz/{pvzId}/close_last_reception
 	r.Post("/pvz/{pvzId}/close_last_reception", func(w http.ResponseWriter, r *http.Request) {
 		pvzIdStr := chi.URLParam(r, "pvzId")
-
 		pvzId, err := uuid.Parse(pvzIdStr)
 		if err != nil {
 			http.Error(w, fmt.Sprintf("invalid pvzId: %v", err), http.StatusBadRequest)
 			return
 		}
+
 		sh.PostPvzPvzIdCloseLastReception(w, r, pvzId)
 	})
 
@@ -136,6 +154,7 @@ func (h *Handler) RegisterStrictHandlers(r chi.Router, sh api.ServerInterface) {
 			http.Error(w, fmt.Sprintf("invalid pvzId: %v", err), http.StatusBadRequest)
 			return
 		}
+
 		sh.PostPvzPvzIdDeleteLastProduct(w, r, pvzId)
 	})
 
