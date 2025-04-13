@@ -23,6 +23,9 @@ func New(db *sqlx.DB) *repository {
 	return &repository{db: db}
 }
 
+/*
+PVZ
+*/
 func (r *repository) CreatePVZ(ctx context.Context, id uuid.UUID, city string, registrationDate time.Time) (api.PVZ, error) {
 	query := `
 		INSERT INTO shop.pvz (id, city, registration_date)
@@ -65,6 +68,9 @@ func (r *repository) IsPVZExist(ctx context.Context, id uuid.UUID) (bool, error)
 	return true, nil
 }
 
+/*
+Reception
+*/
 func (r *repository) CreateReception(ctx context.Context, pvzUUID uuid.UUID, status string) (api.Reception, error) {
 	query := `
 		INSERT INTO shop.receptions (pvz_id, status)
@@ -82,6 +88,30 @@ func (r *repository) CreateReception(ctx context.Context, pvzUUID uuid.UUID, sta
 	}
 
 	return inserted.ToModelAPIReception(), nil
+}
+
+func (r *repository) GetReceptionByPvzUUID(ctx context.Context, pvzUUID uuid.UUID) (api.Reception, error) {
+	query := `
+		SELECT id, pvz_id, status, created_at
+		FROM shop.receptions
+		WHERE pvz_id = $1
+		ORDER BY created_at DESC
+		LIMIT 1
+	`
+
+	var reception models.ReceptionDB
+	err := r.db.QueryRowContext(ctx, query, pvzUUID).
+		Scan(&reception.ID, &reception.PvzID, &reception.Status, &reception.CreatedAt)
+
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return api.Reception{}, nil
+		}
+		log.Logger.Err(err).Str("pvz_uuid", pvzUUID.String()).Msg("method GetReceptionByPvzUUID")
+		return api.Reception{}, errors.New("could not get reception by pvz uuid")
+	}
+
+	return reception.ToModelAPIReception(), nil
 }
 
 func (r *repository) GetReceptionStatusByPvzUUID(ctx context.Context, pvzUUID uuid.UUID) (string, error) {
@@ -105,4 +135,26 @@ func (r *repository) GetReceptionStatusByPvzUUID(ctx context.Context, pvzUUID uu
 	}
 
 	return status, nil
+}
+
+/*
+Product
+*/
+func (r *repository) CreateProduct(ctx context.Context, receptionUUID uuid.UUID, prType string) (api.Product, error) {
+	query := `
+		INSERT INTO shop.products (reception_id, type)
+		VALUES ($1, $2)
+		RETURNING id, reception_id, type, created_at
+	`
+
+	var inserted models.ProductDB
+	err := r.db.QueryRowContext(ctx, query, receptionUUID, prType).
+		Scan(&inserted.ID, &inserted.ReceptionID, &inserted.Type, &inserted.CreatedAt)
+
+	if err != nil {
+		log.Logger.Err(err).Str("reception_uuid", receptionUUID.String()).Str("type", prType).Msg("method CreateProduct")
+		return api.Product{}, errors.New("could not create product")
+	}
+
+	return inserted.ToModelAPIProduct(), nil
 }

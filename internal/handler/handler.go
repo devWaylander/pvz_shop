@@ -23,6 +23,7 @@ type AuthMiddleware interface {
 type Service interface {
 	CreatePVZ(ctx context.Context, data api.PVZ) (api.PVZ, error)
 	CreateReception(ctx context.Context, data api.PostReceptionsJSONBody) (api.Reception, error)
+	CreateProduct(ctx context.Context, data api.PostProductsJSONBody) (api.Product, error)
 }
 
 type Handler struct {
@@ -137,7 +138,27 @@ func (h *Handler) PostReceptions(ctx context.Context, request api.PostReceptions
 // Добавление товара в текущую приемку (только для сотрудников ПВЗ)
 // (POST /products)
 func (h *Handler) PostProducts(ctx context.Context, request api.PostProductsRequestObject) (api.PostProductsResponseObject, error) {
-	return api.PostProducts201JSONResponse{}, nil
+	authPrincipal, err := models.GetAuthPrincipal(ctx)
+	if err != nil {
+		return api.PostProducts500JSONResponse{Message: err.Error()}, err
+	}
+
+	if authPrincipal.Role != string(api.Employee) {
+		err := errors.New(internalErrors.ErrForbiddenRole)
+		return api.PostProducts403JSONResponse{Message: err.Error()}, nil
+	}
+
+	product, err := h.service.CreateProduct(ctx, api.PostProductsJSONBody(*request.Body))
+	if err != nil {
+		switch err.Error() {
+		case internalErrors.ErrPVZDoesntExist, internalErrors.ErrReceptionDoesntExist:
+			return api.PostProducts400JSONResponse{Message: err.Error()}, nil
+		default:
+			return api.PostProducts500JSONResponse{Message: err.Error()}, err
+		}
+	}
+
+	return api.PostProducts201JSONResponse(product), nil
 }
 
 // Удаление последнего добавленного товара из текущей приемки (LIFO, только для сотрудников ПВЗ)

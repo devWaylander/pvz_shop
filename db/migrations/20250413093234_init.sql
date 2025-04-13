@@ -36,12 +36,12 @@ CREATE TABLE shop.products (
 );
 
 -- Индексы для ускорения запросов
--- CREATE INDEX idx_shop_pvz_registration_date ON shop.pvz (registration_date);
+CREATE INDEX idx_receptions_pvz_id_created_at ON shop.receptions (pvz_id, created_at);
 
 
 -- migrate:down
 -- Индексы
--- DROP INDEX IF EXISTS shop.idx_shop_pvz_registration_date;
+DROP INDEX IF EXISTS idx_receptions_pvz_id_created_at;
 
 -- Удаление схемы
 DROP SCHEMA IF EXISTS shop CASCADE;

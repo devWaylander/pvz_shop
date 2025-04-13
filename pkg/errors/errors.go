@@ -19,6 +19,8 @@ const (
 	ErrWrongRegDate = "ERR_DATE_FROM_FUTURE_FOR_REGISTRATION_DATE"
 	ErrPVZExist     = "ERR_PVZ_ALREADY_EXIST"
 	// ===================-  RECEPTION  -===================
-	ErrPVZDoesntExist = "ERR_PVZ_ID_DOESNT_EXIST"
-	ErrReceptionExist = "ERR_RECEPTION_ALREADY_IN_PROGRESS_STATUS"
+	ErrPVZDoesntExist       = "ERR_PVZ_ID_DOESNT_EXIST"
+	ErrReceptionDoesntExist = "ERR_RECEPTION_DOESNT_EXIST"
+	ErrReceptionExist       = "ERR_RECEPTION_ALREADY_IN_PROGRESS_STATUS"
+	ErrWrongReceptionStatus = "ERR_RECEPTION_ALREADY_IS_CLOSED"
 )

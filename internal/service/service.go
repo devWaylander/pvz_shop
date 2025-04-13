@@ -16,7 +16,10 @@ type Repository interface {
 	IsPVZExist(ctx context.Context, id uuid.UUID) (bool, error)
 	// Reception
 	CreateReception(ctx context.Context, pvzUUID uuid.UUID, status string) (api.Reception, error)
+	GetReceptionByPvzUUID(ctx context.Context, pvzUUID uuid.UUID) (api.Reception, error)
 	GetReceptionStatusByPvzUUID(ctx context.Context, pvzUUID uuid.UUID) (string, error)
+	// Product
+	CreateProduct(ctx context.Context, receptionUUID uuid.UUID, prType string) (api.Product, error)
 }
 
 type service struct {
@@ -65,4 +68,32 @@ func (s *service) CreateReception(ctx context.Context, data api.PostReceptionsJS
 	}
 
 	return reception, nil
+}
+
+func (s *service) CreateProduct(ctx context.Context, data api.PostProductsJSONBody) (api.Product, error) {
+	isPVZExist, err := s.repo.IsPVZExist(ctx, data.PvzId)
+	if err != nil {
+		return api.Product{}, err
+	}
+	if !isPVZExist {
+		return api.Product{}, errors.New(internalErrors.ErrPVZDoesntExist)
+	}
+
+	reception, err := s.repo.GetReceptionByPvzUUID(ctx, data.PvzId)
+	if err != nil {
+		return api.Product{}, err
+	}
+	if reception.Id == nil {
+		return api.Product{}, errors.New(internalErrors.ErrReceptionDoesntExist)
+	}
+	if reception.Status != api.InProgress {
+		return api.Product{}, errors.New(internalErrors.ErrWrongReceptionStatus)
+	}
+
+	product, err := s.repo.CreateProduct(ctx, *reception.Id, string(data.Type))
+	if err != nil {
+		return api.Product{}, err
+	}
+
+	return product, nil
 }
