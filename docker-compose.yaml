@@ -40,6 +40,55 @@ services:
     volumes:
       - pvz-pg-test-data:/var/lib/postgresql/data
 
+  migrations:
+      image: migrations
+      build:
+        context: ./
+        dockerfile: docker/migrations.dockerfile
+      command: [
+        # DB waiter
+        "/usr/local/bin/wait-for", "${DB_HOST}:${DB_PORT}", "--",
+        # dbmate auto migrations
+        "/usr/local/bin/dbmate", "--url", "postgres://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}?sslmode=disable", "up",
+        # remove
+        "rm", "-rf", "/db/migrations"
+        ]
+      env_file:
+        - .env
+      depends_on:
+        - postgresdb
+
+  migrationstest:
+    image: migrations
+    build:
+      context: ./
+      dockerfile: docker/migrations.dockerfile
+    command: [
+      # DB waiter
+      "/usr/local/bin/wait-for", "${DB_TEST_HOST}:${DB_PORT}", "--",
+      # dbmate auto migrations
+      "/usr/local/bin/dbmate", "--url", "postgres://${DB_USER}:${DB_TEST_PASSWORD}@${DB_TEST_HOST}:${DB_PORT}/${DB_TEST_NAME}?sslmode=disable", "up",
+      # remove
+      "rm", "-rf", "/db/migrations"
+      ]
+    env_file:
+      - .env
+    depends_on:
+      - postgresdbtest
+
+  pvz:
+    image: pvz
+    build:
+      context: ./
+      dockerfile: docker/pvz.dockerfile
+    env_file:
+    - .env
+    ports:
+      - "8080:8080"
+    depends_on:
+      - migrations
+      - postgresdb
+
 volumes:
   pvz-pg-data: {}
   pvz-pg-test-data: {}

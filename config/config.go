@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/caarlos0/env/v10"
-	"github.com/devWaylander/coins_store/pkg/log"
+	"github.com/devWaylander/pvz_store/pkg/log"
 	"github.com/joho/godotenv"
 )
 

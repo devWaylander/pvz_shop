@@ -3,7 +3,7 @@ package logger
 import (
 	"net/http"
 
-	"github.com/devWaylander/coins_store/pkg/log"
+	"github.com/devWaylander/pvz_store/pkg/log"
 )
 
 func Middleware() func(http.Handler) http.Handler {

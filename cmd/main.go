@@ -8,7 +8,6 @@ import (
 	"os/signal"
 	"syscall"
 
-	errorgroup "github.com/devWaylander/coins_store/pkg/error_group"
 	"github.com/devWaylander/pvz_store/api"
 	"github.com/devWaylander/pvz_store/internal/handler"
 	auth "github.com/devWaylander/pvz_store/internal/middleware/auth"
@@ -16,6 +15,7 @@ import (
 	"github.com/devWaylander/pvz_store/internal/middleware/logger"
 	"github.com/devWaylander/pvz_store/internal/repo"
 	"github.com/devWaylander/pvz_store/internal/service"
+	errorgroup "github.com/devWaylander/pvz_store/pkg/error_group"
 	"github.com/devWaylander/pvz_store/pkg/log"
 	"github.com/getkin/kin-openapi/openapi3filter"
 	"github.com/go-chi/chi/v5"

@@ -4,7 +4,6 @@ go 1.24.0
 
 require (
 	github.com/caarlos0/env/v10 v10.0.0
-	github.com/devWaylander/coins_store v0.0.0-20250218033155-5d4e7361bfbd
 	github.com/getkin/kin-openapi v0.131.0
 	github.com/go-chi/chi/v5 v5.2.1
 	github.com/go-openapi/strfmt v0.23.0
@@ -36,6 +35,7 @@ require (
 	github.com/oasdiff/yaml3 v0.0.0-20250309153720-d2182401db90 // indirect
 	github.com/oklog/ulid v1.3.1 // indirect
 	github.com/perimeterx/marshmallow v1.1.5 // indirect
+	github.com/rogpeppe/go-internal v1.13.1 // indirect
 	go.mongodb.org/mongo-driver v1.14.0 // indirect
 	golang.org/x/sys v0.28.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
