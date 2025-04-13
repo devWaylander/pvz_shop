@@ -10,7 +10,7 @@ type repository struct {
 	db *sqlx.DB
 }
 
-func NewAuthRepo(db *sqlx.DB) *repository {
+func NewRepo(db *sqlx.DB) *repository {
 	return &repository{db: db}
 }
 

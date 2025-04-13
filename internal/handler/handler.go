@@ -30,7 +30,16 @@ func (h *Handler) PostDummyLogin(ctx context.Context, request api.PostDummyLogin
 // Регистрация пользователя
 // (POST /register)
 func (h *Handler) PostRegister(ctx context.Context, req api.PostRegisterRequestObject) (api.PostRegisterResponseObject, error) {
-	return api.PostRegister201JSONResponse{}, nil
+	userId := uuid.New() // Генерируем новый UUID
+	// Создаем данные для нового пользователя (например, id, email, role)
+	user := api.User{
+		Id:    &userId,
+		Email: "test@test.com",
+		Role:  "test",
+	}
+
+	// Возвращаем ответ с успешной регистрацией (201)
+	return api.PostRegister201JSONResponse(user), nil
 }
 
 // Авторизация пользователя
@@ -91,15 +100,10 @@ func (h *Handler) RegisterStrictHandlers(r chi.Router, sh api.ServerInterface) {
 	r.Post("/products", sh.PostProducts)
 
 	// GET /pvz
-	// Для GET-эндпоинта с query параметрами создадим обёртку,
-	// которая извлекает параметры из URL и передаёт в метод GetPvz.
-	// Здесь для простоты предполагается, что параметры передаются как есть.
 	r.Get("/pvz", func(w http.ResponseWriter, r *http.Request) {
-		// Создаем переменную параметров.
-		// Здесь можно использовать встроенные функции или дописать извлечение параметров более подробно.
 		var params api.GetPvzParams
 
-		// Пример: если ожидается параметр "page" в строке запроса
+		// если ожидается параметр "page" в строке запроса
 		if v := r.URL.Query().Get("page"); v != "" {
 			// Здесь можно добавить конвертацию из строки в int
 			// Например, используя strconv.Atoi
@@ -115,8 +119,7 @@ func (h *Handler) RegisterStrictHandlers(r chi.Router, sh api.ServerInterface) {
 	// POST /pvz/{pvzId}/close_last_reception
 	r.Post("/pvz/{pvzId}/close_last_reception", func(w http.ResponseWriter, r *http.Request) {
 		pvzIdStr := chi.URLParam(r, "pvzId")
-		// Преобразуем строку в UUID; здесь используется google/uuid,
-		// предполагается, что openapi_types.UUID совместим с uuid.UUID или есть функция преобразования.
+
 		pvzId, err := uuid.Parse(pvzIdStr)
 		if err != nil {
 			http.Error(w, fmt.Sprintf("invalid pvzId: %v", err), http.StatusBadRequest)

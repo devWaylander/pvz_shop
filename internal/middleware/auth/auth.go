@@ -3,27 +3,25 @@ package auth
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"regexp"
 	"strings"
 	"time"
 	"unicode"
 
-	internalErrors "github.com/devWaylander/coins_store/pkg/errors"
+	internalErrors "github.com/devWaylander/pvz_store/pkg/errors"
 	"github.com/devWaylander/pvz_store/pkg/log"
 	"github.com/devWaylander/pvz_store/pkg/models"
+	"github.com/getkin/kin-openapi/openapi3filter"
 	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"
 )
 
-var unsecuredHandles = map[string]*struct{}{
-	"/api/auth": {},
-}
-
 type Repository interface {
-	CreateUserTX(ctx context.Context, username, passwordHash string) (int64, error)
-	GetUserByUsername(ctx context.Context, username string) (*models.User, error)
-	GetUserPassHashByUsername(ctx context.Context, username string) (string, error)
+	// CreateUserTX(ctx context.Context, username, passwordHash string) (int64, error)
+	// GetUserByUsername(ctx context.Context, username string) (*models.User, error)
+	// GetUserPassHashByUsername(ctx context.Context, username string) (string, error)
 }
 
 type middleware struct {
@@ -38,105 +36,115 @@ func NewMiddleware(repo Repository, jwtKey string) *middleware {
 	}
 }
 
-func (m *middleware) Middleware(next http.Handler) http.Handler {
+func (m *middleware) AuthContextEnrichingMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if unsecuredHandles[r.URL.Path] != nil {
+		authHeader := r.Header.Get("Authorization")
+
+		if !strings.HasPrefix(authHeader, "Bearer ") {
+			// это задача openapi3 AuthenticationFunc
 			next.ServeHTTP(w, r)
 			return
 		}
 
-		authHeader := r.Header.Get("Authorization")
-		ok := strings.Contains(authHeader, "Bearer ")
-		if authHeader == "" || !ok {
-			http.Error(w, internalErrors.ErrAuthHeader, http.StatusUnauthorized)
-			return
-		}
-
-		tokenString := authHeader[len("Bearer "):]
-		token, err := jwt.ParseWithClaims(tokenString, &models.Claims{}, func(token *jwt.Token) (any, error) {
+		tokenString := strings.TrimPrefix(authHeader, "Bearer ")
+		token, err := jwt.ParseWithClaims(tokenString, &models.Claims{}, func(token *jwt.Token) (interface{}, error) {
 			return []byte(m.jwtKey), nil
 		})
-		if err != nil {
-			log.Logger.Err(err).Msg(err.Error())
-			http.Error(w, internalErrors.ErrLogin, http.StatusUnauthorized)
-			return
-		}
-		if !token.Valid {
+		if err != nil || !token.Valid {
+			log.Logger.Err(errors.New(internalErrors.ErrInvalidToken)).Msg(err.Error())
 			http.Error(w, internalErrors.ErrInvalidToken, http.StatusUnauthorized)
 			return
 		}
 
 		claims, ok := token.Claims.(*models.Claims)
 		if !ok {
+			log.Logger.Err(errors.New(internalErrors.ErrInvalidClaims)).Msg("")
 			http.Error(w, internalErrors.ErrInvalidClaims, http.StatusUnauthorized)
 			return
 		}
-		ctx := context.WithValue(r.Context(), models.UserIDKey, claims.UserID)
-		ctx = context.WithValue(ctx, models.UsernameKey, claims.Username)
+
+		principal := models.AuthPrincipal{
+			UserID: claims.UserID,
+			Email:  claims.Email,
+			Role:   claims.Role,
+		}
+
+		ctx := context.WithValue(r.Context(), models.AuthPrincipalKey, principal)
 		r = r.WithContext(ctx)
 
 		next.ServeHTTP(w, r)
 	})
 }
 
-func (m *middleware) LoginWithPass(ctx context.Context, qp models.AuthQuery) (models.AuthDTO, error) {
-	user, err := m.repo.GetUserByUsername(ctx, qp.Username)
-	if err != nil {
-		return models.AuthDTO{}, err
-	}
-
-	claims := models.Claims{
-		UserID: user.ID,
-		Email:  user.Email,
-		Role:   user.Role,
-	}
-
-	// Не зарегистрирован
-	if user.ID == 0 {
-		validPass := m.validatePassword(qp.Password)
-		if !validPass {
-			return models.AuthDTO{}, errors.New(internalErrors.ErrWrongPasswordFormat)
+func (m *middleware) Middleware() openapi3filter.AuthenticationFunc {
+	return func(ctx context.Context, input *openapi3filter.AuthenticationInput) error {
+		principal, err := models.GetAuthPrincipal(ctx)
+		if err != nil || principal == nil {
+			return fmt.Errorf(internalErrors.ErrUnauthenticated)
 		}
 
-		validUsername := m.validateUsername(qp.Username)
-		if !validUsername {
-			return models.AuthDTO{}, errors.New(internalErrors.ErrWrongUsernameFormat)
-		}
-
-		passHash, err := m.passwordHash(qp.Password)
-		if err != nil {
-			return models.AuthDTO{}, err
-		}
-		userID, err := m.repo.CreateUserTX(ctx, qp.Username, passHash)
-		if err != nil {
-			return models.AuthDTO{}, err
-		}
-
-		claims.UserID = userID
-		token, err := m.generateJWT(userID, qp.Username)
-		if err != nil {
-			return models.AuthDTO{}, err
-		}
-
-		return models.AuthDTO{Token: token}, err
+		return nil
 	}
-
-	passHash, err := m.repo.GetUserPassHashByUsername(ctx, qp.Username)
-	if err != nil {
-		return models.AuthDTO{}, err
-	}
-	err = m.passwordCompare(qp.Password, passHash)
-	if err != nil {
-		return models.AuthDTO{}, errors.New(internalErrors.ErrWrongPassword)
-	}
-
-	token, err := m.generateJWT(claims)
-	if err != nil {
-		return models.AuthDTO{}, err
-	}
-
-	return models.AuthDTO{Token: token}, nil
 }
+
+// func (m *middleware) LoginWithPass(ctx context.Context, qp models.AuthQuery) (models.AuthDTO, error) {
+// 	user, err := m.repo.GetUserByUsername(ctx, qp.Username)
+// 	if err != nil {
+// 		return models.AuthDTO{}, err
+// 	}
+
+// 	claims := models.Claims{
+// 		UserID: user.ID,
+// 		Email:  user.Email,
+// 		Role:   user.Role,
+// 	}
+
+// 	// Не зарегистрирован
+// 	if user.ID == 0 {
+// 		validPass := m.validatePassword(qp.Password)
+// 		if !validPass {
+// 			return models.AuthDTO{}, errors.New(internalErrors.ErrWrongPasswordFormat)
+// 		}
+
+// 		validUsername := m.validateUsername(qp.Username)
+// 		if !validUsername {
+// 			return models.AuthDTO{}, errors.New(internalErrors.ErrWrongUsernameFormat)
+// 		}
+
+// 		passHash, err := m.passwordHash(qp.Password)
+// 		if err != nil {
+// 			return models.AuthDTO{}, err
+// 		}
+// 		userID, err := m.repo.CreateUserTX(ctx, qp.Username, passHash)
+// 		if err != nil {
+// 			return models.AuthDTO{}, err
+// 		}
+
+// 		claims.UserID = userID
+// 		token, err := m.generateJWT(userID, qp.Username)
+// 		if err != nil {
+// 			return models.AuthDTO{}, err
+// 		}
+
+// 		return models.AuthDTO{Token: token}, err
+// 	}
+
+// 	passHash, err := m.repo.GetUserPassHashByUsername(ctx, qp.Username)
+// 	if err != nil {
+// 		return models.AuthDTO{}, err
+// 	}
+// 	err = m.passwordCompare(qp.Password, passHash)
+// 	if err != nil {
+// 		return models.AuthDTO{}, errors.New(internalErrors.ErrWrongPassword)
+// 	}
+
+// 	token, err := m.generateJWT(claims)
+// 	if err != nil {
+// 		return models.AuthDTO{}, err
+// 	}
+
+// 	return models.AuthDTO{Token: token}, nil
+// }
 
 func (m *middleware) generateJWT(claims models.Claims) (string, error) {
 	expirationTime := time.Now().Add(24 * time.Hour)

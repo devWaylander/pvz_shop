@@ -11,11 +11,13 @@ import (
 	errorgroup "github.com/devWaylander/coins_store/pkg/error_group"
 	"github.com/devWaylander/pvz_store/api"
 	"github.com/devWaylander/pvz_store/internal/handler"
+	auth "github.com/devWaylander/pvz_store/internal/middleware/auth"
 	"github.com/devWaylander/pvz_store/internal/middleware/cors"
 	"github.com/devWaylander/pvz_store/internal/middleware/logger"
 	"github.com/devWaylander/pvz_store/internal/repo"
 	"github.com/devWaylander/pvz_store/internal/service"
 	"github.com/devWaylander/pvz_store/pkg/log"
+	"github.com/getkin/kin-openapi/openapi3filter"
 	"github.com/go-chi/chi/v5"
 	"github.com/jmoiron/sqlx"
 
@@ -53,32 +55,43 @@ func main() {
 
 	// Repositories
 	repo := repo.New(db)
-	// Auth Middleware
+	authRepo := auth.NewRepo(db)
 	// Service
 	service := service.New(repo)
+	// Auth
+	authMiddlewares := auth.NewMiddleware(authRepo, cfg.Common.JWTSecret)
 
 	// Handlers
 	// chi router and swagger req validator
 	// Инициализация chi-роутера
 	r := chi.NewRouter()
+
 	// middleware логирования
 	r.Use(logger.Middleware())
 	// middleware CORS
 	r.Use(cors.Middleware())
+	// middleware обогащения контекста AuthPrincipal
+	r.Use(authMiddlewares.AuthContextEnrichingMiddleware)
 	// middleware валидации запросов на основе OpenAPI
+	opts := &nethttpmiddleware.Options{
+		SilenceServersWarning: true,
+		Options: openapi3filter.Options{
+			AuthenticationFunc: authMiddlewares.Middleware(),
+		},
+	}
 	swagger, err := api.GetSwagger()
 	if err != nil {
 		log.Logger.Fatal().Msgf("failed to load swagger spec: %s", err)
 	}
-	r.Use(nethttpmiddleware.OapiRequestValidator(swagger))
+	r.Use(nethttpmiddleware.OapiRequestValidatorWithOptions(swagger, opts))
 
 	// Инициализация хендлеров бизнес-логики (реализация интерфейса StrictServerInterface)
 	h := handler.New(service)
 
-	// Создаем strict‑хендлер (объект, удовлетворяющий api.StrictServerInterface)
+	// strict‑хендлер (объект, удовлетворяющий api.StrictServerInterface)
 	strictHandler := api.NewStrictHandler(h, nil)
 
-	// Регистрируем все эндпоинты в роутере chi:
+	// Регистрация эндпоинтов в роутере chi:
 	h.RegisterStrictHandlers(r, strictHandler)
 
 	// HTTP-сервер
