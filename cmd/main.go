@@ -3,16 +3,20 @@ package main
 import (
 	"context"
 	"fmt"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 
 	"github.com/devWaylander/pvz_store/api"
+	"github.com/devWaylander/pvz_store/config"
+	"github.com/devWaylander/pvz_store/internal/grpc"
 	"github.com/devWaylander/pvz_store/internal/handler"
 	auth "github.com/devWaylander/pvz_store/internal/middleware/auth"
 	"github.com/devWaylander/pvz_store/internal/middleware/cors"
 	"github.com/devWaylander/pvz_store/internal/middleware/logger"
+	"github.com/devWaylander/pvz_store/internal/pb/pvz_v1"
 	"github.com/devWaylander/pvz_store/internal/repo"
 	"github.com/devWaylander/pvz_store/internal/service"
 	errorgroup "github.com/devWaylander/pvz_store/pkg/error_group"
@@ -20,10 +24,10 @@ import (
 	"github.com/getkin/kin-openapi/openapi3filter"
 	"github.com/go-chi/chi/v5"
 	"github.com/jmoiron/sqlx"
-
-	"github.com/devWaylander/pvz_store/config"
 	_ "github.com/lib/pq"
 	nethttpmiddleware "github.com/oapi-codegen/nethttp-middleware"
+	grpcPkg "google.golang.org/grpc"
+	"google.golang.org/grpc/reflection"
 )
 
 func main() {
@@ -38,7 +42,6 @@ func main() {
 	go func() {
 		c := make(chan os.Signal, 2)
 		signal.Notify(c, os.Interrupt, syscall.SIGTERM)
-
 		<-c
 		cancel()
 	}()
@@ -100,19 +103,47 @@ func main() {
 		Handler: r,
 	}
 
+	// Запуск gRPC сервера
+	grpcServer := grpcPkg.NewServer()
+	go func(grpcServer *grpcPkg.Server) {
+		// Настроим gRPC сервер
+		lis, err := net.Listen("tcp", ":3000")
+		if err != nil {
+			log.Logger.Fatal().Msgf("не удалось начать прослушку порта gRPC: %v", err)
+		}
+
+		grpcService := grpc.New(repo)
+		pvz_v1.RegisterPVZServiceServer(grpcServer, grpcService)
+
+		reflection.Register(grpcServer)
+
+		log.Logger.Info().Msgf("gRPC сервер запущен на порту 3000")
+		if err := grpcServer.Serve(lis); err != nil {
+			log.Logger.Fatal().Msgf("ошибка при запуске gRPC сервера: %v", err)
+		}
+	}(grpcServer)
+
 	// Graceful shutdown run
 	g, gCtx := errorgroup.EGWithContext(ctx)
 	g.Go(func() error {
-		log.Logger.Info().Msgf("Server is up on port: %s", cfg.Common.Port)
+		log.Logger.Info().Msgf("HTTP сервер запущен на порту: %s", cfg.Common.Port)
 		return httpServer.ListenAndServe()
 	})
 	g.Go(func() error {
 		<-gCtx.Done()
-		log.Logger.Info().Msgf("Server on port %s is shutting down", cfg.Common.Port)
+		log.Logger.Info().Msgf("HTTP сервер на порту %s завершает работу", cfg.Common.Port)
 		return httpServer.Shutdown(context.Background())
 	})
 
+	g.Go(func() error {
+		<-gCtx.Done()
+		log.Logger.Info().Msgf("gRPC сервер на порту 3000 завершает работу")
+		grpcServer.GracefulStop()
+		return nil
+	})
+
+	// Ожидание завершения всех горутин
 	if err := g.Wait(); err != nil {
-		log.Logger.Info().Msgf("exit reason: %s \\n", err)
+		log.Logger.Info().Msgf("Причина выхода: %s", err)
 	}
 }

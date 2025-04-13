@@ -102,7 +102,7 @@ func Test_service_GetPVZsInfo(t *testing.T) {
 			fields: fields{
 				repo: &MockRepository{
 					// Мок для получения списка PVZ
-					GetPVZsFunc: func(ctx context.Context, page, limit int) ([]api.PVZ, error) {
+					GetPVZsWithPaginationFunc: func(ctx context.Context, page, limit int) ([]api.PVZ, error) {
 						return []api.PVZ{
 							{
 								Id:               &newUuid,

@@ -10,15 +10,29 @@ default: help
 help: 												# Show help for each of the Makefile recipes.
 	@grep -E '^[a-zA-Z0-9 -]+:.*#'  Makefile | sort | while read -r l; do printf "\033[1;32m$$(echo $$l | cut -f 1 -d':')\033[00m:$$(echo $$l | cut -f 2- -d'#')\n"; done
 
+.PHONY: lint
 lint: 												# Run linters
 	@echo "🔍 Running golangci-lint..."
 	@golangci-lint run --config .golangci.yaml
 
+.PHONY: genAPI
 genAPI: 										    # Generate oapi API
 	oapi-codegen -generate chi-server,strict-server,types,embedded-spec -package api -o api/api.gen.go ./api/swagger.yaml
 
+.PHONY: genGRPC
+genGRPC: 										    # Generate GRPC
+	protoc --go_out=. --go-grpc_out=. internal/pb/pvz_v1/pvz.proto
+
+.PHONY: grpcCurl
+grpcCurl: 										    # Проверка GRPC сервера
+	grpcurl -plaintext -d '{}' localhost:3000 pvz.v1.PVZService.GetPVZList
+
 .PHONY: installDeps
-installDeps: 										# Install necessary dependencies 
+installDeps: 										# Установка необходимых зависимостей
+	sudo apt install protobuf-compiler
+	go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+	go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+	go install github.com/fullstorydev/grpcurl/cmd/grpcurl@latest
 	go install github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@latest
 	sudo curl -fsSL -o /usr/local/bin/dbmate https://github.com/amacneil/dbmate/releases/latest/download/dbmate-linux-amd64
 	sudo chmod +x /usr/local/bin/dbmate

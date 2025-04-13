@@ -15,7 +15,7 @@ type Repository interface {
 	// PVZ
 	CreatePVZ(ctx context.Context, id uuid.UUID, city string, registrationDate time.Time) (api.PVZ, error)
 	IsPVZExist(ctx context.Context, id uuid.UUID) (bool, error)
-	GetPVZs(ctx context.Context, page, limit int) ([]api.PVZ, error)
+	GetPVZsWithPagination(ctx context.Context, page, limit int) ([]api.PVZ, error)
 	// Reception
 	CreateReception(ctx context.Context, pvzUUID uuid.UUID, status string) (api.Reception, error)
 	GetReceptionByPvzUUID(ctx context.Context, pvzUUID uuid.UUID) (api.Reception, error)
@@ -64,7 +64,7 @@ func (s *service) GetPVZsInfo(ctx context.Context, data api.GetPvzParams) ([]mod
 		data.Limit = &limit
 	}
 
-	pvzs, err := s.repo.GetPVZs(ctx, *data.Page, *data.Limit)
+	pvzs, err := s.repo.GetPVZsWithPagination(ctx, *data.Page, *data.Limit)
 	if err != nil {
 		return nil, err
 	}

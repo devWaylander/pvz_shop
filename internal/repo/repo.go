@@ -68,7 +68,38 @@ func (r *repository) IsPVZExist(ctx context.Context, id uuid.UUID) (bool, error)
 	return true, nil
 }
 
-func (r *repository) GetPVZs(ctx context.Context, page, limit int) ([]api.PVZ, error) {
+func (r *repository) GetPVZs(ctx context.Context) ([]api.PVZ, error) {
+	query := `
+		SELECT id, city, registration_date
+		FROM shop.pvz
+	`
+
+	rows, err := r.db.QueryContext(ctx, query)
+	if err != nil {
+		log.Logger.Err(err).Msg("method GetPVZs")
+		return nil, errors.New("could not get pvzs")
+	}
+	defer rows.Close()
+
+	var pvzs []api.PVZ
+	for rows.Next() {
+		var pvz models.PvzDB
+		if err := rows.Scan(&pvz.ID, &pvz.City, &pvz.RegistrationDate); err != nil {
+			log.Logger.Err(err).Msg("method GetPVZs")
+			return nil, errors.New("could not scan pvz row")
+		}
+		pvzs = append(pvzs, pvz.ToModelAPIPvz())
+	}
+
+	if err := rows.Err(); err != nil {
+		log.Logger.Err(err).Msg("method GetPVZs")
+		return nil, errors.New("error during rows iteration")
+	}
+
+	return pvzs, nil
+}
+
+func (r *repository) GetPVZsWithPagination(ctx context.Context, page, limit int) ([]api.PVZ, error) {
 	offset := (page - 1) * limit
 
 	query := `

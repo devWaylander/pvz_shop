@@ -10,9 +10,9 @@ import (
 
 type MockRepository struct {
 	// PVZ
-	CreatePVZFunc  func(ctx context.Context, id uuid.UUID, city string, registrationDate time.Time) (api.PVZ, error)
-	IsPVZExistFunc func(ctx context.Context, id uuid.UUID) (bool, error)
-	GetPVZsFunc    func(ctx context.Context, page, limit int) ([]api.PVZ, error)
+	CreatePVZFunc             func(ctx context.Context, id uuid.UUID, city string, registrationDate time.Time) (api.PVZ, error)
+	IsPVZExistFunc            func(ctx context.Context, id uuid.UUID) (bool, error)
+	GetPVZsWithPaginationFunc func(ctx context.Context, page, limit int) ([]api.PVZ, error)
 	// Reception
 	CreateReceptionFunc                 func(ctx context.Context, pvzUUID uuid.UUID, status string) (api.Reception, error)
 	GetReceptionByPvzUUIDFunc           func(ctx context.Context, pvzUUID uuid.UUID) (api.Reception, error)
@@ -33,8 +33,8 @@ func (m *MockRepository) IsPVZExist(ctx context.Context, id uuid.UUID) (bool, er
 	return m.IsPVZExistFunc(ctx, id)
 }
 
-func (m *MockRepository) GetPVZs(ctx context.Context, page, limit int) ([]api.PVZ, error) {
-	return m.GetPVZsFunc(ctx, page, limit)
+func (m *MockRepository) GetPVZsWithPagination(ctx context.Context, page, limit int) ([]api.PVZ, error) {
+	return m.GetPVZsWithPaginationFunc(ctx, page, limit)
 }
 
 func (m *MockRepository) CreateReception(ctx context.Context, pvzUUID uuid.UUID, status string) (api.Reception, error) {
