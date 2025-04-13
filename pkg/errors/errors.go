@@ -18,4 +18,7 @@ const (
 	// ===================-  PVZ  -===================
 	ErrWrongRegDate = "ERR_DATE_FROM_FUTURE_FOR_REGISTRATION_DATE"
 	ErrPVZExist     = "ERR_PVZ_ALREADY_EXIST"
+	// ===================-  RECEPTION  -===================
+	ErrPVZDoesntExist = "ERR_PVZ_ID_DOESNT_EXIST"
+	ErrReceptionExist = "ERR_RECEPTION_ALREADY_IN_PROGRESS_STATUS"
 )

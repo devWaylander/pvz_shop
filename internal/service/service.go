@@ -11,7 +11,12 @@ import (
 )
 
 type Repository interface {
+	// PVZ
 	CreatePVZ(ctx context.Context, id uuid.UUID, city string, registrationDate time.Time) (api.PVZ, error)
+	IsPVZExist(ctx context.Context, id uuid.UUID) (bool, error)
+	// Reception
+	CreateReception(ctx context.Context, pvzUUID uuid.UUID, status string) (api.Reception, error)
+	GetReceptionStatusByPvzUUID(ctx context.Context, pvzUUID uuid.UUID) (string, error)
 }
 
 type service struct {
@@ -35,4 +40,29 @@ func (s *service) CreatePVZ(ctx context.Context, data api.PVZ) (api.PVZ, error) 
 	}
 
 	return pvz, nil
+}
+
+func (s *service) CreateReception(ctx context.Context, data api.PostReceptionsJSONBody) (api.Reception, error) {
+	isPVZExist, err := s.repo.IsPVZExist(ctx, data.PvzId)
+	if err != nil {
+		return api.Reception{}, err
+	}
+	if !isPVZExist {
+		return api.Reception{}, errors.New(internalErrors.ErrPVZDoesntExist)
+	}
+
+	pvzStatus, err := s.repo.GetReceptionStatusByPvzUUID(ctx, data.PvzId)
+	if err != nil {
+		return api.Reception{}, err
+	}
+	if pvzStatus == string(api.InProgress) {
+		return api.Reception{}, errors.New(internalErrors.ErrReceptionExist)
+	}
+
+	reception, err := s.repo.CreateReception(ctx, data.PvzId, string(api.InProgress))
+	if err != nil {
+		return api.Reception{}, err
+	}
+
+	return reception, nil
 }

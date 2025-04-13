@@ -2,6 +2,7 @@ package repo
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"time"
 
@@ -40,4 +41,60 @@ func (r *repository) CreatePVZ(ctx context.Context, id uuid.UUID, city string, r
 	}
 
 	return inserted.ToModelAPIPvz(), nil
+}
+
+func (r *repository) IsPVZExist(ctx context.Context, id uuid.UUID) (bool, error) {
+	query := `
+        SELECT 1 FROM shop.pvz WHERE id = $1 LIMIT 1
+    `
+
+	var exists bool
+	err := r.db.QueryRowContext(ctx, query, id).Scan(&exists)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return false, nil
+		}
+		return false, err
+	}
+
+	return true, nil
+}
+
+func (r *repository) CreateReception(ctx context.Context, pvzUUID uuid.UUID, status string) (api.Reception, error) {
+	query := `
+		INSERT INTO shop.receptions (pvz_id, status)
+		VALUES ($1, $2)
+		RETURNING id, pvz_id, created_at, status
+	`
+
+	var inserted models.ReceptionDB
+	err := r.db.QueryRowContext(ctx, query, pvzUUID, status).
+		Scan(&inserted.ID, &inserted.PvzID, &inserted.CreatedAt, &inserted.Status)
+
+	if err != nil {
+		return api.Reception{}, err
+	}
+
+	return inserted.ToModelAPIReception(), nil
+}
+
+func (r *repository) GetReceptionStatusByPvzUUID(ctx context.Context, pvzUUID uuid.UUID) (string, error) {
+	query := `
+		SELECT status
+		FROM shop.receptions
+		WHERE pvz_id = $1
+		ORDER BY created_at DESC
+		LIMIT 1
+	`
+
+	var status string
+	err := r.db.QueryRowContext(ctx, query, pvzUUID).Scan(&status)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return "", nil
+		}
+		return "", err
+	}
+
+	return status, nil
 }

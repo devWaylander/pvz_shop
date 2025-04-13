@@ -22,6 +22,7 @@ type AuthMiddleware interface {
 
 type Service interface {
 	CreatePVZ(ctx context.Context, data api.PVZ) (api.PVZ, error)
+	CreateReception(ctx context.Context, data api.PostReceptionsJSONBody) (api.Reception, error)
 }
 
 type Handler struct {
@@ -110,7 +111,27 @@ func (h *Handler) PostPvz(ctx context.Context, request api.PostPvzRequestObject)
 // Создание новой приемки товаров (только для сотрудников ПВЗ)
 // (POST /receptions)
 func (h *Handler) PostReceptions(ctx context.Context, request api.PostReceptionsRequestObject) (api.PostReceptionsResponseObject, error) {
-	return api.PostReceptions201JSONResponse{}, nil
+	authPrincipal, err := models.GetAuthPrincipal(ctx)
+	if err != nil {
+		return api.PostReceptions500JSONResponse{Message: err.Error()}, err
+	}
+
+	if authPrincipal.Role != string(api.Employee) {
+		err := errors.New(internalErrors.ErrForbiddenRole)
+		return api.PostReceptions403JSONResponse{Message: err.Error()}, nil
+	}
+
+	reception, err := h.service.CreateReception(ctx, api.PostReceptionsJSONBody(*request.Body))
+	if err != nil {
+		switch err.Error() {
+		case internalErrors.ErrReceptionExist, internalErrors.ErrPVZDoesntExist:
+			return api.PostReceptions400JSONResponse{Message: err.Error()}, nil
+		default:
+			return api.PostReceptions500JSONResponse{Message: err.Error()}, err
+		}
+	}
+
+	return api.PostReceptions201JSONResponse(reception), nil
 }
 
 // Добавление товара в текущую приемку (только для сотрудников ПВЗ)
