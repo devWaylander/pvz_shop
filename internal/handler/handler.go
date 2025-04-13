@@ -13,8 +13,9 @@ import (
 )
 
 type AuthMiddleware interface {
-	DummyLogin(ctx context.Context, role api.UserRole) api.Token
+	DummyLogin(ctx context.Context, role api.UserRole) (api.Token, error)
 	Registration(ctx context.Context, data api.PostRegisterJSONBody) (api.User, error)
+	Login(ctx context.Context, data api.PostLoginJSONBody) (api.Token, error)
 }
 
 type Service interface {
@@ -35,7 +36,10 @@ func New(authMiddleware AuthMiddleware, service Service) *Handler {
 // Получение тестового токена
 // (POST /dummyLogin)
 func (h *Handler) PostDummyLogin(ctx context.Context, request api.PostDummyLoginRequestObject) (api.PostDummyLoginResponseObject, error) {
-	token := h.authMiddleware.DummyLogin(ctx, api.UserRole(request.Body.Role))
+	token, err := h.authMiddleware.DummyLogin(ctx, api.UserRole(request.Body.Role))
+	if err != nil {
+		return api.PostDummyLogin500JSONResponse{Message: err.Error()}, err
+	}
 
 	return api.PostDummyLogin200JSONResponse(token), nil
 }
@@ -47,9 +51,9 @@ func (h *Handler) PostRegister(ctx context.Context, req api.PostRegisterRequestO
 	if err != nil {
 		switch err.Error() {
 		case internalErrors.ErrWrongPasswordFormat:
-			return api.PostRegister400JSONResponse{Message: internalErrors.ErrWrongPasswordFormat}, nil
+			return api.PostRegister400JSONResponse{Message: err.Error()}, nil
 		default:
-			return api.PostRegister500JSONResponse{}, err
+			return api.PostRegister500JSONResponse{Message: err.Error()}, err
 		}
 	}
 
@@ -59,7 +63,19 @@ func (h *Handler) PostRegister(ctx context.Context, req api.PostRegisterRequestO
 // Авторизация пользователя
 // (POST /login)
 func (h *Handler) PostLogin(ctx context.Context, request api.PostLoginRequestObject) (api.PostLoginResponseObject, error) {
-	return api.PostLogin200JSONResponse("s"), nil
+	token, err := h.authMiddleware.Login(ctx, api.PostLoginJSONBody(*request.Body))
+	if err != nil {
+		switch err.Error() {
+		case internalErrors.ErrUserNotFound:
+			return api.PostLogin401JSONResponse{Message: err.Error()}, nil
+		case internalErrors.ErrWrongPassword:
+			return api.PostLogin401JSONResponse{Message: err.Error()}, nil
+		default:
+			return api.PostLogin500JSONResponse{Message: err.Error()}, err
+		}
+	}
+
+	return api.PostLogin200JSONResponse(token), nil
 }
 
 // Создание ПВЗ (только для модераторов)

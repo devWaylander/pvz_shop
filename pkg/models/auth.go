@@ -6,6 +6,7 @@ import (
 
 	internalErrors "github.com/devWaylander/pvz_store/pkg/errors"
 	"github.com/devWaylander/pvz_store/pkg/log"
+	"github.com/google/uuid"
 
 	"github.com/golang-jwt/jwt/v5"
 )
@@ -13,11 +14,12 @@ import (
 type contextKey string
 
 const authPrincipalKey contextKey = "authPrincipal"
+const TestEmail = "test@test.com"
 
 type AuthPrincipal struct {
-	UserID int64  `json:"uid"`
-	Email  string `json:"email"`
-	Role   string `json:"role"`
+	UserUUID uuid.UUID `json:"uUUID"`
+	Email    string    `json:"email"`
+	Role     string    `json:"role"`
 }
 
 /*
@@ -51,12 +53,12 @@ type Claims struct {
 	jwt.RegisteredClaims
 }
 
-func NewClaims(userID int64, email, role string) Claims {
+func NewClaims(userUUID uuid.UUID, email, role string) Claims {
 	return Claims{
 		AuthPrincipal: AuthPrincipal{
-			UserID: userID,
-			Email:  email,
-			Role:   role,
+			UserUUID: userUUID,
+			Email:    email,
+			Role:     role,
 		},
 	}
 }

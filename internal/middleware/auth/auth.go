@@ -21,8 +21,8 @@ import (
 
 type Repository interface {
 	CreateUser(ctx context.Context, email, passwordHash, role string) (uuid.UUID, error)
-	// GetUserByUsername(ctx context.Context, username string) (*models.User, error)
-	// GetUserPassHashByUsername(ctx context.Context, username string) (string, error)
+	GetUserByEmail(ctx context.Context, email string) (*api.User, error)
+	GetUserPassHashByUsername(ctx context.Context, email string) (string, error)
 }
 
 type middleware struct {
@@ -82,15 +82,21 @@ func (m *middleware) Middleware() openapi3filter.AuthenticationFunc {
 	}
 }
 
-func (m *middleware) DummyLogin(ctx context.Context, role api.UserRole) api.Token {
-	claims := models.NewClaims(9999, "test@test.com", string(role))
+func (m *middleware) DummyLogin(ctx context.Context, role api.UserRole) (api.Token, error) {
+	uuid, err := uuid.NewRandom()
+	if err != nil {
+		log.Logger.Err(err).Msg("method DummyLogin, NewRandom")
+		return api.Token(""), errors.New(internalErrors.ErrEncodeJWT)
+	}
+	claims := models.NewClaims(uuid, models.TestEmail, string(role))
 
 	token, err := m.generateJWT(claims)
 	if err != nil {
-		return api.Token("")
+		log.Logger.Err(err).Msg("method DummyLogin, generateJWT")
+		return api.Token(""), errors.New(internalErrors.ErrEncodeJWT)
 	}
 
-	return api.Token(token)
+	return api.Token(token), nil
 }
 
 func (m *middleware) Registration(ctx context.Context, data api.PostRegisterJSONBody) (api.User, error) {
@@ -118,64 +124,34 @@ func (m *middleware) Registration(ctx context.Context, data api.PostRegisterJSON
 	return user, nil
 }
 
-// func (m *middleware) LoginWithPass(ctx context.Context, qp models.AuthQuery) (models.AuthDTO, error) {
-// 	user, err := m.repo.GetUserByUsername(ctx, qp.Username)
-// 	if err != nil {
-// 		return models.AuthDTO{}, err
-// 	}
+func (m *middleware) Login(ctx context.Context, data api.PostLoginJSONBody) (api.Token, error) {
+	user, err := m.repo.GetUserByEmail(ctx, string(data.Email))
+	if err != nil {
+		return api.Token(""), err
+	}
+	if user.Id == nil {
+		return api.Token(""), errors.New(internalErrors.ErrUserNotFound)
+	}
 
-// 	claims := models.Claims{
-// 		UserID: user.ID,
-// 		Email:  user.Email,
-// 		Role:   user.Role,
-// 	}
+	passHash, err := m.repo.GetUserPassHashByUsername(ctx, string(data.Email))
+	if err != nil {
+		return api.Token(""), err
+	}
+	err = m.passwordCompare(data.Password, passHash)
+	if err != nil {
+		return api.Token(""), errors.New(internalErrors.ErrWrongPassword)
+	}
 
-// 	// Не зарегистрирован
-// 	if user.ID == 0 {
-// 		validPass := m.validatePassword(qp.Password)
-// 		if !validPass {
-// 			return models.AuthDTO{}, errors.New(internalErrors.ErrWrongPasswordFormat)
-// 		}
+	claims := models.NewClaims(*user.Id, string(user.Email), string(user.Role))
 
-// 		validUsername := m.validateUsername(qp.Username)
-// 		if !validUsername {
-// 			return models.AuthDTO{}, errors.New(internalErrors.ErrWrongUsernameFormat)
-// 		}
+	token, err := m.generateJWT(claims)
+	if err != nil {
+		log.Logger.Err(err).Msg("method Login, generateJWT")
+		return api.Token(""), errors.New(internalErrors.ErrEncodeJWT)
+	}
 
-// 		passHash, err := m.passwordHash(qp.Password)
-// 		if err != nil {
-// 			return models.AuthDTO{}, err
-// 		}
-// 		userID, err := m.repo.CreateUserTX(ctx, qp.Username, passHash)
-// 		if err != nil {
-// 			return models.AuthDTO{}, err
-// 		}
-
-// 		claims.UserID = userID
-// 		token, err := m.generateJWT(userID, qp.Username)
-// 		if err != nil {
-// 			return models.AuthDTO{}, err
-// 		}
-
-// 		return models.AuthDTO{Token: token}, err
-// 	}
-
-// 	passHash, err := m.repo.GetUserPassHashByUsername(ctx, qp.Username)
-// 	if err != nil {
-// 		return models.AuthDTO{}, err
-// 	}
-// 	err = m.passwordCompare(qp.Password, passHash)
-// 	if err != nil {
-// 		return models.AuthDTO{}, errors.New(internalErrors.ErrWrongPassword)
-// 	}
-
-// 	token, err := m.generateJWT(claims)
-// 	if err != nil {
-// 		return models.AuthDTO{}, err
-// 	}
-
-// 	return models.AuthDTO{Token: token}, nil
-// }
+	return token, nil
+}
 
 func (m *middleware) generateJWT(claims models.Claims) (string, error) {
 	expirationTime := time.Now().Add(24 * time.Hour)
