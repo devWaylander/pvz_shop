@@ -14,9 +14,9 @@ CREATE TABLE shop.users (
 
 -- Таблица ПВЗ (PVZ)
 CREATE TABLE shop.pvz (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id UUID PRIMARY KEY,
     city VARCHAR(100) CHECK (city IN ('Москва', 'Санкт-Петербург', 'Казань')) NOT NULL,
-    created_at TIMESTAMP DEFAULT NOW()
+    registration_date TIMESTAMP NOT NULL
 );
 
 -- Таблица приемок (Reception)
@@ -36,16 +36,12 @@ CREATE TABLE shop.products (
 );
 
 -- Индексы для ускорения запросов
-CREATE INDEX idx_shop_pvz_created_at ON shop.pvz (created_at);
-CREATE INDEX idx_shop_reception_created_at ON shop.receptions (created_at);
-CREATE INDEX idx_shop_product_created_at ON shop.products (created_at);
+-- CREATE INDEX idx_shop_pvz_registration_date ON shop.pvz (registration_date);
 
 
 -- migrate:down
 -- Индексы
-DROP INDEX IF EXISTS shop.idx_shop_pvz_registration_date;
-DROP INDEX IF EXISTS shop.idx_shop_reception_date_time;
-DROP INDEX IF EXISTS shop.idx_shop_product_date_time;
+-- DROP INDEX IF EXISTS shop.idx_shop_pvz_registration_date;
 
 -- Удаление схемы
 DROP SCHEMA IF EXISTS shop CASCADE;

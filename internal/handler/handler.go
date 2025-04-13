@@ -2,11 +2,13 @@ package handler
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 
 	"github.com/devWaylander/pvz_store/api"
 	internalErrors "github.com/devWaylander/pvz_store/pkg/errors"
+	"github.com/devWaylander/pvz_store/pkg/models"
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"github.com/oapi-codegen/runtime"
@@ -19,6 +21,7 @@ type AuthMiddleware interface {
 }
 
 type Service interface {
+	CreatePVZ(ctx context.Context, data api.PVZ) (api.PVZ, error)
 }
 
 type Handler struct {
@@ -81,7 +84,27 @@ func (h *Handler) PostLogin(ctx context.Context, request api.PostLoginRequestObj
 // Создание ПВЗ (только для модераторов)
 // (POST /pvz)
 func (h *Handler) PostPvz(ctx context.Context, request api.PostPvzRequestObject) (api.PostPvzResponseObject, error) {
-	return api.PostPvz201JSONResponse{}, nil
+	authPrincipal, err := models.GetAuthPrincipal(ctx)
+	if err != nil {
+		return api.PostPvz500JSONResponse{Message: err.Error()}, err
+	}
+
+	if authPrincipal.Role != string(api.Moderator) {
+		err := errors.New(internalErrors.ErrForbiddenRole)
+		return api.PostPvz403JSONResponse{Message: err.Error()}, nil
+	}
+
+	pvz, err := h.service.CreatePVZ(ctx, *request.Body)
+	if err != nil {
+		switch err.Error() {
+		case internalErrors.ErrPVZExist:
+			return api.PostPvz400JSONResponse{Message: err.Error()}, nil
+		default:
+			return api.PostPvz500JSONResponse{Message: err.Error()}, err
+		}
+	}
+
+	return api.PostPvz201JSONResponse(pvz), nil
 }
 
 // Создание новой приемки товаров (только для сотрудников ПВЗ)
@@ -112,7 +135,7 @@ func (h *Handler) PostPvzPvzIdCloseLastReception(
 	return api.PostPvzPvzIdCloseLastReception200JSONResponse{}, nil
 }
 
-// Получение списка ПВЗ с фильтрацией по дате приемки и пагинацией
+// Получение списка ПВЗ с фильтрацией по дате приемки и пагинацией (для всех ролей)
 // (GET /pvz)
 func (h *Handler) GetPvz(ctx context.Context, request api.GetPvzRequestObject) (api.GetPvzResponseObject, error) {
 	return api.GetPvz200JSONResponse{}, nil
@@ -123,11 +146,44 @@ func (h *Handler) RegisterStrictHandlers(r chi.Router, sh api.ServerInterface) {
 	// POST /dummyLogin
 	r.Post("/dummyLogin", sh.PostDummyLogin)
 
+	// POST /register
+	r.Post("/register", sh.PostRegister)
+
 	// POST /login
 	r.Post("/login", sh.PostLogin)
 
+	// POST /pvz
+	r.Post("/pvz", sh.PostPvz)
+
+	// POST /receptions
+	r.Post("/receptions", sh.PostReceptions)
+
 	// POST /products
 	r.Post("/products", sh.PostProducts)
+
+	// POST /pvz/{pvzId}/delete_last_product
+	r.Post("/pvz/{pvzId}/delete_last_product", func(w http.ResponseWriter, r *http.Request) {
+		pvzIdStr := chi.URLParam(r, "pvzId")
+		pvzId, err := uuid.Parse(pvzIdStr)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("invalid pvzId: %v", err), http.StatusBadRequest)
+			return
+		}
+
+		sh.PostPvzPvzIdDeleteLastProduct(w, r, pvzId)
+	})
+
+	// POST /pvz/{pvzId}/close_last_reception
+	r.Post("/pvz/{pvzId}/close_last_reception", func(w http.ResponseWriter, r *http.Request) {
+		pvzIdStr := chi.URLParam(r, "pvzId")
+		pvzId, err := uuid.Parse(pvzIdStr)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("invalid pvzId: %v", err), http.StatusBadRequest)
+			return
+		}
+
+		sh.PostPvzPvzIdCloseLastReception(w, r, pvzId)
+	})
 
 	// GET /pvz
 	r.Get("/pvz", func(w http.ResponseWriter, r *http.Request) {
@@ -159,37 +215,4 @@ func (h *Handler) RegisterStrictHandlers(r chi.Router, sh api.ServerInterface) {
 
 		sh.GetPvz(w, r, params)
 	})
-
-	// POST /pvz
-	r.Post("/pvz", sh.PostPvz)
-
-	// POST /pvz/{pvzId}/close_last_reception
-	r.Post("/pvz/{pvzId}/close_last_reception", func(w http.ResponseWriter, r *http.Request) {
-		pvzIdStr := chi.URLParam(r, "pvzId")
-		pvzId, err := uuid.Parse(pvzIdStr)
-		if err != nil {
-			http.Error(w, fmt.Sprintf("invalid pvzId: %v", err), http.StatusBadRequest)
-			return
-		}
-
-		sh.PostPvzPvzIdCloseLastReception(w, r, pvzId)
-	})
-
-	// POST /pvz/{pvzId}/delete_last_product
-	r.Post("/pvz/{pvzId}/delete_last_product", func(w http.ResponseWriter, r *http.Request) {
-		pvzIdStr := chi.URLParam(r, "pvzId")
-		pvzId, err := uuid.Parse(pvzIdStr)
-		if err != nil {
-			http.Error(w, fmt.Sprintf("invalid pvzId: %v", err), http.StatusBadRequest)
-			return
-		}
-
-		sh.PostPvzPvzIdDeleteLastProduct(w, r, pvzId)
-	})
-
-	// POST /receptions
-	r.Post("/receptions", sh.PostReceptions)
-
-	// POST /register
-	r.Post("/register", sh.PostRegister)
 }

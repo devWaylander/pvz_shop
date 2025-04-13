@@ -240,7 +240,7 @@ paths:
                 $ref: '#/components/schemas/Error'
 
     get:
-      summary: Получение списка ПВЗ с фильтрацией по дате приемки и пагинацией
+      summary: Получение списка ПВЗ с фильтрацией по дате приемки и пагинацией (для всех ролей)
       security:
         - bearerAuth: []
       parameters:
