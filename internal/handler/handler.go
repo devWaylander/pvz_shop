@@ -11,21 +11,31 @@ import (
 	"github.com/oapi-codegen/runtime"
 )
 
+type AuthMiddleware interface {
+	DummyLogin(ctx context.Context, role api.UserRole) api.Token
+}
+
 type Service interface {
 }
 
 type Handler struct {
-	service Service
+	authMiddleware AuthMiddleware
+	service        Service
 }
 
-func New(service Service) *Handler {
-	return &Handler{service: service}
+func New(authMiddleware AuthMiddleware, service Service) *Handler {
+	return &Handler{
+		authMiddleware: authMiddleware,
+		service:        service,
+	}
 }
 
 // Получение тестового токена
 // (POST /dummyLogin)
 func (h *Handler) PostDummyLogin(ctx context.Context, request api.PostDummyLoginRequestObject) (api.PostDummyLoginResponseObject, error) {
-	return api.PostDummyLogin200JSONResponse("test"), nil
+	token := h.authMiddleware.DummyLogin(ctx, api.UserRole(request.Body.Role))
+
+	return api.PostDummyLogin200JSONResponse(token), nil
 }
 
 // Регистрация пользователя
@@ -89,7 +99,7 @@ func (h *Handler) GetPvz(ctx context.Context, request api.GetPvzRequestObject) (
 	return api.GetPvz200JSONResponse{}, nil
 }
 
-// RegisterStrictHandlers регистрирует все эндпоинты strict‑сервера на chi‑роутере.
+// RegisterStrictHandlers регистрирует все эндпоинты strict‑сервера на chi‑роутере, а также занимается парсингом URL и query параметров
 func (h *Handler) RegisterStrictHandlers(r chi.Router, sh api.ServerInterface) {
 	// POST /dummyLogin
 	r.Post("/dummyLogin", sh.PostDummyLogin)

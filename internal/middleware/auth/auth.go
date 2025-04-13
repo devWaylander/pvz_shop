@@ -10,6 +10,7 @@ import (
 	"time"
 	"unicode"
 
+	"github.com/devWaylander/pvz_store/api"
 	internalErrors "github.com/devWaylander/pvz_store/pkg/errors"
 	"github.com/devWaylander/pvz_store/pkg/log"
 	"github.com/devWaylander/pvz_store/pkg/models"
@@ -63,13 +64,7 @@ func (m *middleware) AuthContextEnrichingMiddleware(next http.Handler) http.Hand
 			return
 		}
 
-		principal := models.AuthPrincipal{
-			UserID: claims.UserID,
-			Email:  claims.Email,
-			Role:   claims.Role,
-		}
-
-		ctx := context.WithValue(r.Context(), models.AuthPrincipalKey, principal)
+		ctx := models.SetAuthPrincipal(r.Context(), claims.AuthPrincipal)
 		r = r.WithContext(ctx)
 
 		next.ServeHTTP(w, r)
@@ -85,6 +80,17 @@ func (m *middleware) Middleware() openapi3filter.AuthenticationFunc {
 
 		return nil
 	}
+}
+
+func (m *middleware) DummyLogin(ctx context.Context, role api.UserRole) api.Token {
+	claims := models.NewClaims(9999, "test@test.com", string(role))
+
+	token, err := m.generateJWT(claims)
+	if err != nil {
+		return api.Token("")
+	}
+
+	return api.Token(token)
 }
 
 // func (m *middleware) LoginWithPass(ctx context.Context, qp models.AuthQuery) (models.AuthDTO, error) {

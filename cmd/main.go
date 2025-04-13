@@ -86,7 +86,7 @@ func main() {
 	r.Use(nethttpmiddleware.OapiRequestValidatorWithOptions(swagger, opts))
 
 	// Инициализация хендлеров бизнес-логики (реализация интерфейса StrictServerInterface)
-	h := handler.New(service)
+	h := handler.New(authMiddlewares, service)
 
 	// strict‑хендлер (объект, удовлетворяющий api.StrictServerInterface)
 	strictHandler := api.NewStrictHandler(h, nil)

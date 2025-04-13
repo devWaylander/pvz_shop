@@ -9,7 +9,7 @@ import (
 
 type contextKey string
 
-const AuthPrincipalKey contextKey = "authPrincipal"
+const authPrincipalKey contextKey = "authPrincipal"
 
 type AuthPrincipal struct {
 	UserID int64  `json:"uid"`
@@ -17,17 +17,41 @@ type AuthPrincipal struct {
 	Role   string `json:"role"`
 }
 
+/*
+  служат исключительно для передачи параметров из middlewares авторизации в имплементацию бизнес-хендлеров
+  удовлетворяющих генерируемому api.StrictServerInterface
+*/
+// GetAuthPrincipal устанавливает пользователя в контексте по копии
+func SetAuthPrincipal(ctx context.Context, principal AuthPrincipal) context.Context {
+	return context.WithValue(ctx, authPrincipalKey, principal)
+}
+
+/*
+  служит исключительно для передачи параметров из middlewares авторизации в имплементацию бизнес-хендлеров
+  удовлетворяющих генерируемому api.StrictServerInterface
+*/
+// GetAuthPrincipal достаёт ссылку на пользователя из контекста
+func GetAuthPrincipal(ctx context.Context) (*AuthPrincipal, error) {
+	val := ctx.Value(authPrincipalKey)
+	principal, ok := val.(AuthPrincipal)
+	if !ok || principal == (AuthPrincipal{}) {
+		return nil, errors.New("auth principal not found in context")
+	}
+
+	return &principal, nil
+}
+
 type Claims struct {
 	AuthPrincipal
 	jwt.RegisteredClaims
 }
 
-// GetAuthPrincipal достаёт пользователя из контекста
-func GetAuthPrincipal(ctx context.Context) (*AuthPrincipal, error) {
-	val := ctx.Value(AuthPrincipalKey)
-	principal, ok := val.(*AuthPrincipal)
-	if !ok || principal == nil {
-		return nil, errors.New("auth principal not found in context")
+func NewClaims(userID int64, email, role string) Claims {
+	return Claims{
+		AuthPrincipal: AuthPrincipal{
+			UserID: userID,
+			Email:  email,
+			Role:   role,
+		},
 	}
-	return principal, nil
 }
