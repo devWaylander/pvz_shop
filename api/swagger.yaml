@@ -4,6 +4,9 @@ info:
   description: Сервис для управления ПВЗ и приемкой товаров
   version: 1.0.0
 
+servers:
+  - url: http://localhost:8080
+
 components:
   schemas:
     Token:
@@ -112,6 +115,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '500':
+          description: Ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
   /register:
     post:
@@ -128,6 +137,11 @@ paths:
                   format: email
                 password:
                   type: string
+                  description: |
+                    Должен содержать минимум 8 символов.
+                    Должен включать латинские строчные и заглавные буквы.
+                    Должен содержать хотя бы один спецсимвол.
+                  minLength: 8
                 role:
                   type: string
                   enum: [employee, moderator]
@@ -141,6 +155,12 @@ paths:
                 $ref: '#/components/schemas/User'
         '400':
           description: Неверный запрос
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Ошибка сервера
           content:
             application/json:
               schema:
@@ -171,6 +191,12 @@ paths:
                 $ref: '#/components/schemas/Token'
         '401':
           description: Неверные учетные данные
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Ошибка сервера
           content:
             application/json:
               schema:
@@ -206,9 +232,15 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '500':
+          description: Ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
     get:
-      summary: Получение списка ПВЗ с фильтрацией по дате приемки и пагинацией
+      summary: Получение списка ПВЗ с фильтрацией по дате приемки и пагинацией (для всех ролей)
       security:
         - bearerAuth: []
       parameters:
@@ -266,10 +298,16 @@ paths:
                             type: array
                             items:
                               $ref: '#/components/schemas/Product'
+        '500':
+          description: Ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
   /pvz/{pvzId}/close_last_reception:
     post:
-      summary: Закрытие последней открытой приемки товаров в рамках ПВЗ
+      summary: Закрытие последней открытой приемки товаров в рамках ПВЗ (только для сотрудников ПВЗ)
       security:
         - bearerAuth: []
       parameters:
@@ -294,6 +332,12 @@ paths:
                 $ref: '#/components/schemas/Error'
         '403':
           description: Доступ запрещен
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Ошибка сервера
           content:
             application/json:
               schema:
@@ -323,6 +367,12 @@ paths:
                 $ref: '#/components/schemas/Error'
         '403':
           description: Доступ запрещен
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Ошибка сервера
           content:
             application/json:
               schema:
@@ -363,6 +413,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '500':
+          description: Ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
   /products:
     post:
@@ -398,6 +454,12 @@ paths:
                 $ref: '#/components/schemas/Error'
         '403':
           description: Доступ запрещен
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Ошибка сервера
           content:
             application/json:
               schema:

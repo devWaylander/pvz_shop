@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/caarlos0/env/v10"
-	"github.com/devWaylander/coins_store/pkg/log"
+	"github.com/devWaylander/pvz_store/pkg/log"
 	"github.com/joho/godotenv"
 )
 
@@ -31,13 +31,13 @@ type DB struct {
 	DBPassword           string        `env:"PASSWORD,required"`
 	DBName               string        `env:"NAME,required"`
 	DBPort               string        `env:"PORT,required"`
-	DBMaxConnections     int32         `env:"MAX_CONNECTIONS,required"`
+	DBMaxConnections     int           `env:"MAX_CONNECTIONS,required"`
 	DBLocalUrl           string        `env:"DATABASE_LOCAL_URL,required"`
 	DBContainerUrl       string        `env:"DATABASE_CONTAINER_URL,required"`
 	DBTestUrl            string        `env:"TEST_DATABASE_URL,required"`
+	DBUrl                string        `json:"dbURL"`
 	DBLifeTimeConnection time.Duration `json:"dbLifeTimeConnection"`
 	DBMaxConnIdleTime    time.Duration `json:"dbeMaxIdleTime"`
-	DBUrl                string        `json:"dbURL"`
 }
 
 func Parse() (Config, error) {
