@@ -8,7 +8,6 @@ import (
 	"regexp"
 	"strings"
 	"time"
-	"unicode"
 
 	"github.com/devWaylander/pvz_store/api"
 	internalErrors "github.com/devWaylander/pvz_store/pkg/errors"
@@ -16,11 +15,12 @@ import (
 	"github.com/devWaylander/pvz_store/pkg/models"
 	"github.com/getkin/kin-openapi/openapi3filter"
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 )
 
 type Repository interface {
-	// CreateUserTX(ctx context.Context, username, passwordHash string) (int64, error)
+	CreateUser(ctx context.Context, email, passwordHash, role string) (uuid.UUID, error)
 	// GetUserByUsername(ctx context.Context, username string) (*models.User, error)
 	// GetUserPassHashByUsername(ctx context.Context, username string) (string, error)
 }
@@ -91,6 +91,31 @@ func (m *middleware) DummyLogin(ctx context.Context, role api.UserRole) api.Toke
 	}
 
 	return api.Token(token)
+}
+
+func (m *middleware) Registration(ctx context.Context, data api.PostRegisterJSONBody) (api.User, error) {
+	ok := m.validatePassword(data.Password)
+	if !ok {
+		return api.User{}, errors.New(internalErrors.ErrWrongPasswordFormat)
+	}
+
+	password, err := m.passwordHash(data.Password)
+	if err != nil {
+		return api.User{}, err
+	}
+
+	uuid, err := m.repo.CreateUser(ctx, string(data.Email), password, string(data.Role))
+	if err != nil {
+		return api.User{}, err
+	}
+
+	user := api.User{
+		Id:    &uuid,
+		Email: data.Email,
+		Role:  api.UserRole(data.Role),
+	}
+
+	return user, nil
 }
 
 // func (m *middleware) LoginWithPass(ctx context.Context, qp models.AuthQuery) (models.AuthDTO, error) {
@@ -195,18 +220,4 @@ func (m *middleware) validatePassword(password string) bool {
 	hasSpecial := regexp.MustCompile(`[\W_]`).MatchString(password)
 
 	return hasUpper && hasLower && hasDigit && hasSpecial
-}
-
-func (m *middleware) validateUsername(username string) bool {
-	if len(username) > 64 {
-		return false
-	}
-
-	for _, r := range username {
-		if !unicode.IsLetter(r) && !unicode.IsDigit(r) {
-			return false
-		}
-	}
-
-	return true
 }

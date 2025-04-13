@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/devWaylander/pvz_store/api"
+	internalErrors "github.com/devWaylander/pvz_store/pkg/errors"
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"github.com/oapi-codegen/runtime"
@@ -13,6 +14,7 @@ import (
 
 type AuthMiddleware interface {
 	DummyLogin(ctx context.Context, role api.UserRole) api.Token
+	Registration(ctx context.Context, data api.PostRegisterJSONBody) (api.User, error)
 }
 
 type Service interface {
@@ -41,15 +43,16 @@ func (h *Handler) PostDummyLogin(ctx context.Context, request api.PostDummyLogin
 // Регистрация пользователя
 // (POST /register)
 func (h *Handler) PostRegister(ctx context.Context, req api.PostRegisterRequestObject) (api.PostRegisterResponseObject, error) {
-	userId := uuid.New() // Генерируем новый UUID
-	// Создаем данные для нового пользователя (например, id, email, role)
-	user := api.User{
-		Id:    &userId,
-		Email: "test@test.com",
-		Role:  "test",
+	user, err := h.authMiddleware.Registration(ctx, api.PostRegisterJSONBody(*req.Body))
+	if err != nil {
+		switch err.Error() {
+		case internalErrors.ErrWrongPasswordFormat:
+			return api.PostRegister400JSONResponse{Message: internalErrors.ErrWrongPasswordFormat}, nil
+		default:
+			return api.PostRegister500JSONResponse{}, err
+		}
 	}
 
-	// Возвращаем ответ с успешной регистрацией (201)
 	return api.PostRegister201JSONResponse(user), nil
 }
 

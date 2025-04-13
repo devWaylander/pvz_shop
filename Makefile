@@ -19,12 +19,12 @@ genAPI: 										    # Generate oapi API
 
 .PHONY: installDeps
 installDeps: 										# Install necessary dependencies 
-	go install github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@latest \
-	sudo curl -fsSL -o /usr/local/bin/dbmate https://github.com/amacneil/dbmate/releases/latest/download/dbmate-linux-amd64 \
-	sudo chmod +x /usr/local/bin/dbmate \
+	go install github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@latest
+	sudo curl -fsSL -o /usr/local/bin/dbmate https://github.com/amacneil/dbmate/releases/latest/download/dbmate-linux-amd64
+	sudo chmod +x /usr/local/bin/dbmate
 	/usr/local/bin/dbmate --help
 
-	.PHONY: dropTestDB
+.PHONY: dropTestDB
 dropTestDB: 										# Drop test database
 	dbmate -u $(TEST_DATABASE_URL) drop
 

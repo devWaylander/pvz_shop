@@ -4,6 +4,9 @@ import (
 	"context"
 	"errors"
 
+	internalErrors "github.com/devWaylander/pvz_store/pkg/errors"
+	"github.com/devWaylander/pvz_store/pkg/log"
+
 	"github.com/golang-jwt/jwt/v5"
 )
 
@@ -35,7 +38,9 @@ func GetAuthPrincipal(ctx context.Context) (*AuthPrincipal, error) {
 	val := ctx.Value(authPrincipalKey)
 	principal, ok := val.(AuthPrincipal)
 	if !ok || principal == (AuthPrincipal{}) {
-		return nil, errors.New("auth principal not found in context")
+		err := errors.New(internalErrors.ErrDecodeCtx)
+		log.Logger.Err(err).Msg("method GetAuthPrincipal")
+		return nil, err
 	}
 
 	return &principal, nil

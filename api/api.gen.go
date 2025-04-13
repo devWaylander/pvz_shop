@@ -167,7 +167,11 @@ type PostReceptionsJSONBody struct {
 
 // PostRegisterJSONBody defines parameters for PostRegister.
 type PostRegisterJSONBody struct {
-	Email    openapi_types.Email      `json:"email"`
+	Email openapi_types.Email `json:"email"`
+
+	// Password Должен содержать минимум 8 символов.
+	// Должен включать латинские строчные и заглавные буквы.
+	// Должен содержать хотя бы один спецсимвол.
 	Password string                   `json:"password"`
 	Role     PostRegisterJSONBodyRole `json:"role"`
 }
@@ -708,6 +712,15 @@ func (response PostLogin401JSONResponse) VisitPostLoginResponse(w http.ResponseW
 	return json.NewEncoder(w).Encode(response)
 }
 
+type PostLogin500JSONResponse Error
+
+func (response PostLogin500JSONResponse) VisitPostLoginResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
 type PostProductsRequestObject struct {
 	Body *PostProductsJSONRequestBody
 }
@@ -743,6 +756,15 @@ func (response PostProducts403JSONResponse) VisitPostProductsResponse(w http.Res
 	return json.NewEncoder(w).Encode(response)
 }
 
+type PostProducts500JSONResponse Error
+
+func (response PostProducts500JSONResponse) VisitPostProductsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
 type GetPvzRequestObject struct {
 	Params GetPvzParams
 }
@@ -762,6 +784,15 @@ type GetPvz200JSONResponse []struct {
 func (response GetPvz200JSONResponse) VisitGetPvzResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetPvz500JSONResponse Error
+
+func (response GetPvz500JSONResponse) VisitGetPvzResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
 
 	return json.NewEncoder(w).Encode(response)
 }
@@ -801,6 +832,15 @@ func (response PostPvz403JSONResponse) VisitPostPvzResponse(w http.ResponseWrite
 	return json.NewEncoder(w).Encode(response)
 }
 
+type PostPvz500JSONResponse Error
+
+func (response PostPvz500JSONResponse) VisitPostPvzResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
 type PostPvzPvzIdCloseLastReceptionRequestObject struct {
 	PvzId openapi_types.UUID `json:"pvzId"`
 }
@@ -836,6 +876,15 @@ func (response PostPvzPvzIdCloseLastReception403JSONResponse) VisitPostPvzPvzIdC
 	return json.NewEncoder(w).Encode(response)
 }
 
+type PostPvzPvzIdCloseLastReception500JSONResponse Error
+
+func (response PostPvzPvzIdCloseLastReception500JSONResponse) VisitPostPvzPvzIdCloseLastReceptionResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
 type PostPvzPvzIdDeleteLastProductRequestObject struct {
 	PvzId openapi_types.UUID `json:"pvzId"`
 }
@@ -866,6 +915,15 @@ type PostPvzPvzIdDeleteLastProduct403JSONResponse Error
 func (response PostPvzPvzIdDeleteLastProduct403JSONResponse) VisitPostPvzPvzIdDeleteLastProductResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(403)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type PostPvzPvzIdDeleteLastProduct500JSONResponse Error
+
+func (response PostPvzPvzIdDeleteLastProduct500JSONResponse) VisitPostPvzPvzIdDeleteLastProductResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
 
 	return json.NewEncoder(w).Encode(response)
 }
@@ -905,6 +963,15 @@ func (response PostReceptions403JSONResponse) VisitPostReceptionsResponse(w http
 	return json.NewEncoder(w).Encode(response)
 }
 
+type PostReceptions500JSONResponse Error
+
+func (response PostReceptions500JSONResponse) VisitPostReceptionsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
 type PostRegisterRequestObject struct {
 	Body *PostRegisterJSONRequestBody
 }
@@ -927,6 +994,15 @@ type PostRegister400JSONResponse Error
 func (response PostRegister400JSONResponse) VisitPostRegisterResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type PostRegister500JSONResponse Error
+
+func (response PostRegister500JSONResponse) VisitPostRegisterResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
 
 	return json.NewEncoder(w).Encode(response)
 }
@@ -1258,35 +1334,38 @@ func (sh *strictHandler) PostRegister(w http.ResponseWriter, r *http.Request) {
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"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",
-	"6pfs6pYvVfFa4VqBNTYaPwYAAP//jTd9qxwiAAA=",
+	"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",
+	"Y7fxnwAAAP//ZoAYeVInAAA=",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file
